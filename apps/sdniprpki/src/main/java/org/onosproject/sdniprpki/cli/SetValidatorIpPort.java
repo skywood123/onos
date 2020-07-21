@@ -1,0 +1,41 @@
+/*
+ * Copyright 2015-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.onosproject.sdniprpki.cli;
+
+import org.apache.karaf.shell.api.action.Argument;
+import org.apache.karaf.shell.api.action.Command;
+import org.apache.karaf.shell.api.action.lifecycle.Service;
+import org.onosproject.cli.AbstractShellCommand;
+import org.onosproject.sdniprpki.SdnIpService;
+
+@Service
+@Command(scope = "onos", name = "RPKI-SetValidator",
+        description = "Set SDN-IP RPKI Validator IP:PORT")
+public class SetValidatorIpPort extends AbstractShellCommand {
+
+    @Argument(index = 0, name = "RPKI Validator IP:Port(ex 123.123.123.123:9556)",
+            description = "ip addr for RPKI-validator", required = true, multiValued = false)
+    String validatorIP = null;
+private SdnIpService service;
+
+    @Override
+    protected void doExecute() throws Exception {
+        service = get(SdnIpService.class);
+
+        service.setvalidatorIp(validatorIP);
+    }
+}
