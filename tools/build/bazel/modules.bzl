@@ -254,6 +254,7 @@ ONOS_APPS = [
     "//apps/workflow:onos-apps-workflow-oar",
     "//apps/workflow/ofoverlay:onos-apps-workflow-ofoverlay-oar",
     "//apps/packet-throttle:onos-apps-packet-throttle-oar",
+    "//apps/sdniprpki:onos-apps-sdniprpki-oar",
 ]
 
 PROTOCOL_APPS = [
