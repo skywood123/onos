@@ -192,7 +192,6 @@ public class SdnIpFib implements SdnIpService {
             return null;
         }
         if (isRPKIenabled) {
-
             String routeValidity = validateRoute(prefix);
             if (routeValidity.equals("valid")) {
                 log.info("Installing intent for " + prefix.toString());
@@ -483,6 +482,7 @@ public class SdnIpFib implements SdnIpService {
             return sdnIpConfig.encap();
         }
     }
+
     @Override
     public void setvalidatorIp(String ipPort) {
         validatorIPPort = ipPort;
@@ -532,6 +532,7 @@ public class SdnIpFib implements SdnIpService {
         }
     }
 
+    @Override
     public void enableRpki() {
         if (validatorIPPort == null) {
             System.out.println("Please set the RPKI Validator ip:port first");
@@ -547,6 +548,7 @@ public class SdnIpFib implements SdnIpService {
         }
     }
 
+    @Override
     public void disableRpki() {
         if (isRPKIenabled) {
             isRPKIenabled = false;
@@ -556,16 +558,17 @@ public class SdnIpFib implements SdnIpService {
                 System.out.println(rr.toString());
                 update(rr);
             }
-
-
         } else {
             System.out.println("SDN-IP feature is not enabled!");
         }
     }
+
+    @Override
     public void isRpkiEnabled() {
         System.out.println("SDN-IP RPKI feature enabled: " + isRPKIenabled);
 
     }
+
     /*
         Assumming path segment only AS_SEQUENCE
          */
@@ -584,6 +587,7 @@ public class SdnIpFib implements SdnIpService {
         }
         return asorigin;
     }
+
 // not in use since sdn-ip only support ipv4
     private Long getAsOriginv6(String prefix) {
         Collection<BgpRouteEntry> bgpRoute = bgpInfoService.getBgpRoutes6();

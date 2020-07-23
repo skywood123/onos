@@ -16,18 +16,40 @@
 
 package org.onosproject.sdniprpki;
 
+/**
+ * Features to interact with BGP RPKI ROV
+ */
 public interface SdnIpService {
 
+    /**
+     * Validate all known BGP routes.
+     */
     public void validateAllRoutes();
 
+    /**
+     * Set RPKI Validator socket address.
+     * @param ipPort
+     */
     public void setvalidatorIp(String ipPort);
 
+    /**
+     * Enable RPKI feature and validate all known BGP routes.
+     */
     public void enableRpki();
 
+    /**
+     * Disable RPKI feature and reinstall MP2SP intents for all known BGP routes.
+     */
     public void disableRpki();
 
+    /**
+     * Print true if RPKI feature is enabled.
+     */
     public void isRpkiEnabled();
 
+    /**
+     * Print RPKI Validator socket address.
+     */
     public void getvalidatorIp();
 
 

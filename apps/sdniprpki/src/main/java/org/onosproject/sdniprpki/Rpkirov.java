@@ -22,10 +22,22 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import org.json.JSONObject;
 
+/**
+ * Validation of the route prefix and ASN with RPKI Validator
+ * using HTTP GET and process the response in JSON format.
+ */
 public final class Rpkirov {
 
     private Rpkirov() {
     }
+
+    /**
+     * Validate route prefix and ASN with RPKI Validator socket address
+     * @param validatorip
+     * @param asnumber
+     * @param prefix
+     * @return
+     */
     public static String validate(String validatorip, String asnumber, String prefix) {
         try {
             //"12735" , "31.223.93.0/24"          --valid
@@ -37,8 +49,8 @@ public final class Rpkirov {
             //e.printStackTrace();
             return null;
         }
-
     }
+
     private static String callMe(String validatorip, String asnumber, String prefix) throws Exception {
 
         String url = "http://" + validatorip + "/validity?asn=" + asnumber + "&prefix=" + prefix;
