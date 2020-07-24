@@ -17,7 +17,7 @@
 package org.onosproject.sdniprpki;
 
 /**
- * Features to interact with BGP RPKI ROV
+ * Features to interact with BGP RPKI ROV.
  */
 public interface SdnIpService {
 
@@ -28,7 +28,7 @@ public interface SdnIpService {
 
     /**
      * Set RPKI Validator socket address.
-     * @param ipPort
+     * @param ipPort Set RPKI Validator socket address (IP:PORT)
      */
     public void setvalidatorIp(String ipPort);
 

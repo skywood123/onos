@@ -32,11 +32,11 @@ public final class Rpkirov {
     }
 
     /**
-     * Validate route prefix and ASN with RPKI Validator socket address
-     * @param validatorip
-     * @param asnumber
-     * @param prefix
-     * @return
+     * Validate route prefix and ASN with RPKI Validator socket address.
+     * @param validatorip RPKI Validator socket address(IP:PORT NUMBER)
+     * @param asnumber BGP route source origin ASN
+     * @param prefix BGP route prefix
+     * @return Return validity status for the combination of ASN and PREFIX : valid,invalid,not-found
      */
     public static String validate(String validatorip, String asnumber, String prefix) {
         try {

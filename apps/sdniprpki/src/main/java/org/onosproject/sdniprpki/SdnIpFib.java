@@ -487,13 +487,14 @@ public class SdnIpFib implements SdnIpService {
     public void setvalidatorIp(String ipPort) {
         validatorIPPort = ipPort;
         log.info("Input should set for example : 123.123.123.123:9556");
-        log.info("Current validator ip_address: " + validatorIPPort);
+        log.info("Current validator ip_address: {}", validatorIPPort);
     }
 
     @Override
     public void getvalidatorIp() {
         if (validatorIPPort != null) {
             System.out.println("Current validator ip:port = " + validatorIPPort);
+            log.info("Current validator ip:port = []", validatorIPPort);
         }
     }
 
@@ -521,8 +522,7 @@ public class SdnIpFib implements SdnIpService {
                 asOrigin = bgpPath.get(bgpPath.size() - 1);
             }
             String routevalidity = Rpkirov.validate(validatorIPPort, asOrigin + "", route.prefix().toString());
-            log.info("validity for AS " + asOrigin + " network " +
-                    route.prefix().toString() + " is = " + routevalidity);
+            log.info("validity for AS {} prefix {} is = {}", asOrigin, route.prefix().toString(), routevalidity);
             System.out.println("AS" + asOrigin + " " + route.prefix().toString() + " = " + routevalidity);
             if (!routevalidity.equals("valid") && !routevalidity.equals(null)) {
                 withdraw(new ResolvedRoute(new Route(Route.Source.BGP, route.prefix(),
@@ -566,6 +566,7 @@ public class SdnIpFib implements SdnIpService {
     @Override
     public void isRpkiEnabled() {
         System.out.println("SDN-IP RPKI feature enabled: " + isRPKIenabled);
+        log.info("SDN-IP RPKI feature enabled: {}", isRPKIenabled);
 
     }
 
@@ -617,8 +618,8 @@ public class SdnIpFib implements SdnIpService {
         if (routevalidity.equals("not-found")) {
             routevalidity = "Unknown";
         }
-        log.info("Found new route update ! ASN=" + asorigin + " ,prefix= " +
-                prefix.toString() + ", validity = " + routevalidity);
+        log.info("Found new route update ! ASN ={} ,prefix = {}, validity = ",
+                asorigin, prefix.toString(), routevalidity);
         return routevalidity;
     }
 
