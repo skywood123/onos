@@ -6,7 +6,7 @@ It is implemented as an optional feature to the SDN-IP application.
 
 This application is developed in ONOS 2.1 with the use of http service from RPKI relying part software [Routinator](https://github.com/NLnetLabs/routinator).
 
-The code that handling the http communication with Routinator is at [Rpkirov.java](https://github.com/skywood123/sdnip-rpki/blob/master/src/main/java/org/onosproject/sdniprpki/Rpkirov.java). Modification can be made here if the JSON format used with another RPKI Validator is different.
+The code that handling the http communication with Routinator is at [Rpkirov.java](https://github.com/skywood123/onos/blob/onos-2.1-sdniprpki/apps/sdnip/src/main/java/org/onosproject/sdnip/Rpkirov.java). Modification can be made here if the JSON format used with another RPKI Validator is different.
 ### How it works
 
 Original SDN-IP application will install mulitpoint-to-singlepoint(MP2SP) intent for the BGP route advertised from the neighbor BGP router.
@@ -50,49 +50,6 @@ RPKI-SetValidator
 RPKI-Enable
 RPKI-ValidateAllRoutes
 RPKI-Disable
-```
-## Getting Started
-
-**Build application**
-
-1. Clone this repository into $ONOS_ROOT/apps/
-```
-git clone https://github.com/skywood123/ONOS_SDN-IP_ROUTE-VALIDATION.git
-```
-
-2. Paste this at the bottom of ONOS WORKSPACE file
-
-```
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-RULES_JVM_EXTERNAL_TAG = "2.0.1"
-
-RULES_JVM_EXTERNAL_SHA = "55e8d3951647ae3dffde22b4f7f8dee11b3f70f3f89424713debd7076197eaca"
-
-http_archive(
-    name = "rules_jvm_external",
-    sha256 = RULES_JVM_EXTERNAL_SHA,
-    strip_prefix = "rules_jvm_external-%s" % RULES_JVM_EXTERNAL_TAG,
-    url = "https://github.com/bazelbuild/rules_jvm_external/archive/%s.zip" % RULES_JVM_EXTERNAL_TAG,
-)
-
-load("@rules_jvm_external//:defs.bzl", "maven_install")
-
-maven_install(
-    artifacts = [
-        "org.json:json:20190722",
-    ],
-    repositories = [
-        "https://repo1.maven.org/maven2",
-    ],
-)
-```
-
-3. Build with bazel and install the OAR file for this application to the ONOS through GUI/CLI
-
-```
-cd $ONOS_ROOT
-bazel build //apps/sdnip-rpki:all
 ```
 
 ## Guide
