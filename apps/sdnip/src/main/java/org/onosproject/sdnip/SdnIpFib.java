@@ -18,6 +18,15 @@ package org.onosproject.sdnip;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
+import org.apache.karaf.shell.api.action.lifecycle.Service;
+import org.onosproject.routeservice.ResolvedRoute;
+import org.onosproject.routeservice.RouteEvent;
+import org.onosproject.routeservice.RouteListener;
+import org.onosproject.routeservice.RouteService;
+import org.onosproject.routeservice.RouteTableId;
+import org.onosproject.routeservice.Route;
+import org.onosproject.routing.bgp.BgpInfoService;
+import org.onosproject.routing.bgp.BgpRouteEntry;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -34,10 +43,6 @@ import org.onosproject.net.intf.Interface;
 import org.onosproject.net.intf.InterfaceEvent;
 import org.onosproject.net.intf.InterfaceListener;
 import org.onosproject.net.intf.InterfaceService;
-import org.onosproject.routeservice.ResolvedRoute;
-import org.onosproject.routeservice.RouteEvent;
-import org.onosproject.routeservice.RouteListener;
-import org.onosproject.routeservice.RouteService;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.EncapsulationType;
 import org.onosproject.net.FilteredConnectPoint;
@@ -58,11 +63,12 @@ import org.onosproject.intentsync.IntentSynchronizationService;
 import org.onosproject.sdnip.config.SdnIpConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collection;
+//import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.onosproject.net.EncapsulationType.NONE;
@@ -71,7 +77,8 @@ import static org.onosproject.net.EncapsulationType.NONE;
  * FIB component of SDN-IP.
  */
 @Component(immediate = true, enabled = false)
-public class SdnIpFib {
+@Service
+public class SdnIpFib implements SdnIpService {
     private Logger log = LoggerFactory.getLogger(getClass());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
@@ -89,6 +96,9 @@ public class SdnIpFib {
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected RouteService routeService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected BgpInfoService bgpInfoService;
+
     private final InternalRouteListener routeListener = new InternalRouteListener();
     private final InternalInterfaceListener interfaceListener = new InternalInterfaceListener();
     private final InternalNetworkConfigListener networkConfigListener =
@@ -103,6 +113,8 @@ public class SdnIpFib {
             = new ConcurrentHashMap<>();
 
     private ApplicationId appId;
+    private static String validatorIPPort = null;
+    private static boolean isRPKIenabled = false;
 
     @Activate
     public void activate() {
@@ -178,6 +190,21 @@ public class SdnIpFib {
             log.warn("No outgoing interface found for {}",
                     nextHopIpAddress);
             return null;
+        }
+        if (isRPKIenabled) {
+            String routeValidity = validateRoute(prefix);
+            if (routeValidity.equals("valid")) {
+                log.info("Installing intent for " + prefix.toString());
+            } else if (routeValidity.equals("invalid")) {
+                log.warn("Invalid route : not installing intent for it!");
+                return null;
+            } else if (routeValidity.equals("Unknown")) {
+                log.warn("Unknown route : not installing intent for it!");
+                return null;
+            } else {
+                log.warn("Error when validating with RPKI VALIDATOR!");
+                return null;
+            }
         }
         ConnectPoint egressPort = egressInterface.connectPoint();
 
@@ -456,19 +483,159 @@ public class SdnIpFib {
         }
     }
 
+    @Override
+    public void setvalidatorIp(String ipPort) {
+        validatorIPPort = ipPort;
+        log.info("Input should set for example : 123.123.123.123:9556");
+        log.info("Current validator ip_address: {}", validatorIPPort);
+    }
+
+    @Override
+    public void getvalidatorIp() {
+        if (validatorIPPort != null) {
+            System.out.println("Current validator ip:port = " + validatorIPPort);
+            log.info("Current validator ip:port = []", validatorIPPort);
+        }
+    }
+
+
+    /*
+    Assumming path segment only AS_SEQUENCE
+     */
+    @Override
+    public void validateAllRoutes() {
+        if (!isRPKIenabled) {
+            log.warn("sdn-ip rpki feature is not enabled");
+            System.out.println("SDN-IP RPKI feature is not enabled");
+            return;
+        }
+
+        log.info("Running RPKI VALIDATION for all existing BGP Information...");
+        System.out.println("RPKI VALIDATOR IP = " + validatorIPPort);
+        Collection<BgpRouteEntry> bgpRoute = bgpInfoService.getBgpRoutes4();
+        for (BgpRouteEntry route : bgpRoute) {
+            //   log.info(route.prefix().toString() + " " + route.getAsPath().toString());
+            ArrayList<BgpRouteEntry.PathSegment> pathSegments = route.getAsPath().getPathSegments();
+            ArrayList<Long> bgpPath = pathSegments.get(0).getSegmentAsNumbers();
+            Long asOrigin = null;
+            if (bgpPath != null && !bgpPath.isEmpty()) {
+                asOrigin = bgpPath.get(bgpPath.size() - 1);
+            }
+            String routevalidity = Rpkirov.validate(validatorIPPort, asOrigin + "", route.prefix().toString());
+            log.info("validity for AS {} prefix {} is = {}", asOrigin, route.prefix().toString(), routevalidity);
+            System.out.println("AS" + asOrigin + " " + route.prefix().toString() + " = " + routevalidity);
+            if (!routevalidity.equals("valid") && !routevalidity.equals(null)) {
+                withdraw(new ResolvedRoute(new Route(Route.Source.BGP, route.prefix(),
+                        route.nextHop()), new MacAddress(MacAddress.ZERO.toBytes())));
+            }
+
+        }
+    }
+
+    @Override
+    public void enableRpki() {
+        if (validatorIPPort == null) {
+            System.out.println("Please set the RPKI Validator ip:port first");
+            log.warn("RPKI Validator IP:PORT is not set");
+            return;
+        }
+        if (!isRPKIenabled) {
+        isRPKIenabled = true;
+        validateAllRoutes();
+        } else {
+            System.out.println("RPKI feature is enabled. Do NOTHING here.");
+            log.info("RPKI feature is enabled. DO NOTHING HERE.");
+        }
+    }
+
+    @Override
+    public void disableRpki() {
+        if (isRPKIenabled) {
+            isRPKIenabled = false;
+            Collection<ResolvedRoute> resolvedRoutes = routeService.getResolvedRoutes(new RouteTableId("ipv4"));
+            System.out.println("Reinstalling intents for all ipv4 resolved routes");
+            for (ResolvedRoute rr : resolvedRoutes) {
+                System.out.println(rr.toString());
+                update(rr);
+            }
+        } else {
+            System.out.println("SDN-IP feature is not enabled!");
+        }
+    }
+
+    @Override
+    public void isRpkiEnabled() {
+        System.out.println("SDN-IP RPKI feature enabled: " + isRPKIenabled);
+        log.info("SDN-IP RPKI feature enabled: {}", isRPKIenabled);
+
+    }
+
+    /*
+        Assumming path segment only AS_SEQUENCE
+         */
+    private Long getAsOriginv4(String prefix) {
+        Collection<BgpRouteEntry> bgpRoute = bgpInfoService.getBgpRoutes4();
+        Long asorigin = null;
+        for (BgpRouteEntry route : bgpRoute) {
+            if (route.prefix().toString().equals(prefix)) {
+                ArrayList<BgpRouteEntry.PathSegment> pathSegments = route.getAsPath().getPathSegments();
+                ArrayList<Long> bgppath = pathSegments.get(0).getSegmentAsNumbers();
+
+                if (bgppath != null && !bgppath.isEmpty()) {
+                    asorigin = bgppath.get(bgppath.size() - 1);
+                }
+            }
+        }
+        return asorigin;
+    }
+
+// not in use since sdn-ip only support ipv4
+    private Long getAsOriginv6(String prefix) {
+        Collection<BgpRouteEntry> bgpRoute = bgpInfoService.getBgpRoutes6();
+        Long asorigin = null;
+        for (BgpRouteEntry route : bgpRoute) {
+            if (route.prefix().toString().equals(prefix)) {
+                ArrayList<BgpRouteEntry.PathSegment> pathSegments = route.getAsPath().getPathSegments();
+                ArrayList<Long> bgppath = pathSegments.get(0).getSegmentAsNumbers();
+
+                if (bgppath != null && !bgppath.isEmpty()) {
+                    asorigin = bgppath.get(bgppath.size() - 1);
+                }
+            }
+        }
+        return asorigin;
+    }
+
+    private String validateRoute(IpPrefix prefix) {
+        Long asorigin = null;
+        if (prefix.isIp4()) {
+            asorigin = getAsOriginv4(prefix.toString());
+        } else if (prefix.isIp6()) {
+            asorigin = getAsOriginv6(prefix.toString());
+        }
+        String routevalidity = Rpkirov.validate(validatorIPPort, asorigin + "",
+                prefix.toString());
+        if (routevalidity.equals("not-found")) {
+            routevalidity = "Unknown";
+        }
+        log.info("Found new route update ! ASN ={} ,prefix = {}, validity = ",
+                asorigin, prefix.toString(), routevalidity);
+        return routevalidity;
+    }
+
     private class InternalRouteListener implements RouteListener {
         @Override
         public void event(RouteEvent event) {
             switch (event.type()) {
-            case ROUTE_ADDED:
-            case ROUTE_UPDATED:
-                update(event.subject());
-                break;
-            case ROUTE_REMOVED:
-                withdraw(event.subject());
-                break;
-            default:
-                break;
+                case ROUTE_ADDED:
+                case ROUTE_UPDATED:
+                    update(event.subject());
+                    break;
+                case ROUTE_REMOVED:
+                    withdraw(event.subject());
+                    break;
+                default:
+                    break;
             }
         }
     }

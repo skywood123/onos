@@ -13,22 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.onosproject.sdniprpki.cli.completer;
 
-import com.google.common.collect.Lists;
+package org.onosproject.sdnip.cli;
+
+import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
-import org.onosproject.cli.AbstractChoicesCompleter;
+import org.onosproject.cli.AbstractShellCommand;
+import org.onosproject.sdnip.SdnIpService;
 
-import java.util.List;
-
-/**
- * SDN-IP command completer.
- */
 @Service
-public class SdnIpCommandCompleter extends AbstractChoicesCompleter {
+@Command(scope = "onos", name = "RPKI-GetValidatorIPPort",
+        description = "Show the RPKI Validator IP Port")
+public class GetvalidatorIpPort extends AbstractShellCommand {
+
+    private SdnIpService service;
 
     @Override
-    public List<String> choices() {
-        return Lists.newArrayList("set-encap");
+    protected void doExecute() throws Exception {
+        service = get(SdnIpService.class);
+        service.getvalidatorIp();
     }
 }

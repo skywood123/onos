@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package org.onosproject.sdniprpki.cli;
+package org.onosproject.sdnip.cli;
 
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.sdniprpki.SdnIpService;
+import org.onosproject.sdnip.SdnIpService;
 
 @Service
 @Command(scope = "onos", name = "RPKI-ValidateAllRoutes",

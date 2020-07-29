@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package org.onosproject.sdniprpki.cli;
+package org.onosproject.sdnip.cli;
 
 import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.sdniprpki.SdnIpService;
+import org.onosproject.sdnip.SdnIpService;
 
 @Service
-@Command(scope = "onos", name = "RPKI-Enable",
-        description = "Enable RPKI Route Validation feature")
-public class EnableRpki extends AbstractShellCommand {
+@Command(scope = "onos", name = "RPKI-Status",
+        description = "Show RPKI feature status")
+public class Isrpkienabled extends AbstractShellCommand {
 
 
     private SdnIpService service;
@@ -33,6 +33,6 @@ public class EnableRpki extends AbstractShellCommand {
     protected void doExecute() throws Exception {
 
         service = get(SdnIpService.class);
-        service.enableRpki();
+        service.isRpkiEnabled();
     }
 }

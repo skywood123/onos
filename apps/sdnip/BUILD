@@ -2,12 +2,15 @@ COMPILE_DEPS = CORE_DEPS + JACKSON + CLI + [
     "//apps/routing-api:onos-apps-routing-api",
     "//apps/route-service/api:onos-apps-route-service-api",
     "//apps/intentsync:onos-apps-intentsync",
+    "//apps/routing/common:onos-apps-routing-common",
+    "@maven//:org_json_json_20190722",
 ]
 
 BUNDLES = [
     "//apps/sdnip:onos-apps-sdnip",
     "//apps/routing-api:onos-apps-routing-api",
     "//apps/routing/common:onos-apps-routing-common",
+    "@maven//:org_json_json_20190722",
 ]
 
 TEST_DEPS = TEST_ADAPTERS + [

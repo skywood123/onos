@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.onosproject.sdniprpki;
+package org.onosproject.sdnip;
 
 /**
  * Features to interact with BGP RPKI ROV.

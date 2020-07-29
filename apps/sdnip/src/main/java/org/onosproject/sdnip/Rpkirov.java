@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package org.onosproject.sdniprpki;
+package org.onosproject.sdnip;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
