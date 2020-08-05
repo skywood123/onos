@@ -27,6 +27,7 @@ import org.onosproject.routeservice.RouteTableId;
 import org.onosproject.routeservice.Route;
 import org.onosproject.routing.bgp.BgpInfoService;
 import org.onosproject.routing.bgp.BgpRouteEntry;
+import org.onosproject.sdnip.config.SdnIpRpkiConfig;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -494,7 +495,7 @@ public class SdnIpFib implements SdnIpService {
     public void getvalidatorIp() {
         if (validatorIPPort != null) {
             System.out.println("Current validator ip:port = " + validatorIPPort);
-            log.info("Current validator ip:port = []", validatorIPPort);
+            log.info("Current validator ip:port = {}", validatorIPPort);
         }
     }
 
@@ -623,6 +624,19 @@ public class SdnIpFib implements SdnIpService {
         return routevalidity;
     }
 
+    private void rpkiUpdate() {
+        SdnIpRpkiConfig sdnIpRpkiConfig =
+                networkConfigService.getConfig(appId, SdnIpRpkiConfig.class);
+        if (sdnIpRpkiConfig == null) {
+            log.debug("No SDN-IP RPKI config available");
+        } else {
+            SdnIpRpkiConfig.RpkiConfig rpkiConfig = sdnIpRpkiConfig.getRpkiConfiguration();
+            isRPKIenabled = rpkiConfig.isRpkiEnabled();
+            validatorIPPort = rpkiConfig.validatorSocketaddress();
+        }
+
+    }
+
     private class InternalRouteListener implements RouteListener {
         @Override
         public void event(RouteEvent event) {
@@ -653,6 +667,9 @@ public class SdnIpFib implements SdnIpService {
                 case CONFIG_REMOVED:
                     if (event.configClass() == SdnIpConfig.class) {
                         encapUpdate();
+                    }
+                    if (event.configClass() == SdnIpRpkiConfig.class) {
+                        rpkiUpdate();
                     }
                     break;
                 default:

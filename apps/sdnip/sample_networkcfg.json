@@ -1,0 +1,60 @@
+{
+    "ports" : {
+        "of:0000aa2989edc140/4" : {
+            "interfaces" : [
+                {
+                    "name" : "AS65001@abc",
+                    "ips"  : [ "192.168.60.52/24" ],
+                    "mac"  : "3a:ca:48:b4:df:81"
+                }
+            ]
+        },
+        "of:00000050568a14e8/8" : {
+            "interfaces" : [
+                {
+                    "name" : "AS65002@def",
+                    "ips"  : [ "192.168.50.52/24" ],
+                    "mac"  : "3a:ca:48:b4:df:81"
+                }
+            ]
+        },
+         "of:00009aa1ef877d4c/5" : {
+            "interfaces" : [
+                {
+                    "name" : "clientnetwork",
+                    "ips"  : [ "192.168.100.52/24" ],
+                    "mac"  : "3a:ca:48:b4:df:81"
+                }
+            ]
+        }
+    },
+    "apps" : {
+        "org.onosproject.router" : {
+            "bgp" : {
+                "bgpSpeakers" : [
+                    {
+                        "name" : "AS65000@zzz",
+                        "connectPoint" : "of:00009aa1ef877d4c/4",
+                        "peers" : [
+                            "192.168.60.51",
+                            "192.168.50.152",
+                            "192.168.100.55"
+                        ]
+                    }
+                ]
+            }
+        },
+        "org.onosproject.sdnip" : {
+            "sdnip-rpki" : {
+                "rpkiConfig" : {
+                        "validatorIP" : "203.80.21.9",
+                        "validatorPort" : "9553",
+                        "rpkiEnabled" : true
+                    }
+            }
+        }
+    }
+}
+
+
+

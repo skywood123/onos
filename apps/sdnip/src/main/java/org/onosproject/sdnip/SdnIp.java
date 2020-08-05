@@ -16,6 +16,7 @@
 package org.onosproject.sdnip;
 
 import com.google.common.collect.ImmutableList;
+import org.onosproject.sdnip.config.SdnIpRpkiConfig;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
@@ -89,6 +90,15 @@ public class SdnIp {
                 }
             });
 
+    private ConfigFactory configFactory =
+            new ConfigFactory(SubjectFactories.APP_SUBJECT_FACTORY,
+                                SdnIpRpkiConfig.class, SdnIpRpkiConfig.SDN_IP_RPKI) {
+                @Override
+                public SdnIpRpkiConfig createConfig() {
+                    return new SdnIpRpkiConfig();
+                }
+            };
+
     @Activate
     protected void activate() {
         appId = coreService.registerApplication(SDN_IP_APP);
@@ -109,6 +119,8 @@ public class SdnIp {
         applicationService.registerDeactivateHook(appId,
                 () -> intentSynchronizer.removeIntentsByAppId(appId));
 
+        cfgRegistry.registerConfigFactory(configFactory);
+
         log.info("Started");
     }
 
@@ -122,6 +134,7 @@ public class SdnIp {
 
         peerConnectivity.stop();
 
+        cfgRegistry.unregisterConfigFactory(configFactory);
         log.info("Stopped");
     }
 }
