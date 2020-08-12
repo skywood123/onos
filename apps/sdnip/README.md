@@ -44,12 +44,11 @@ Response from Routinator http service for a given ASN and Prefix will be ```vali
 
 ### List of available commands for this application from ONOS CLI:
 ```
-RPKI-Status
-RPKI-GetValidatorIPPort
-RPKI-SetValidator
-RPKI-Enable
-RPKI-ValidateAllRoutes
-RPKI-Disable
+rpki enable
+rpki disable
+rpki set
+rpki show
+rpki validateallroutes
 ```
 
 ## Guide
@@ -58,27 +57,22 @@ RPKI-Disable
 
 1. Set the RPKI Validator Ip address and port number (xxx.xxx.xxx.xxx:port)
 ```
-RPKI-SetValidator 123.123.123.123:8323
+rpki set 123.123.123.123:8323
 ```
 2. Enable RPKI ROV feature.
 ```
-RPKI-Enable
+rpki enable
 ```
-3. (Optional) Check Current RPKI Validator address
+3. (Optional) Check Current RPKI configuration.
 ```
-RPKI-GetValidatorIPPort
+rpki show
 ```
-4. (Optional) Check if RPKI ROV is enabled.
+4. (Optional) Disable RPKI ROV feature.
 ```
-RPKI-Status
+rpki disable
 ```
-
-5. (Optional) Disable RPKI ROV feature.
+5. (Optional) Force BGP Route Origin Validation for all BGP Routes.
 ```
-RPKI-Disable
-```
-6. (Optional) Force BGP Route Origin Validation for all BGP Routes.
-```
-RPKI-ValidateAllRoutes
+rpki validateallroutes
 ```
 
