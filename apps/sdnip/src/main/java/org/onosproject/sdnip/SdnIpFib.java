@@ -489,12 +489,18 @@ public class SdnIpFib implements SdnIpService {
         validatorIPPort = ipPort;
         log.info("Input should set for example : 123.123.123.123:9556");
         log.info("Current validator ip_address: {}", validatorIPPort);
+        log.info("Checking validator reachability with dummy ASN 10000 and Prefix 192.168.0.0/24");
+        String checkValidatorContactable = Rpkirov.validate(validatorIPPort, "10000", "192.168.0.0/24");
+        if (checkValidatorContactable == null) {
+            log.warn("Validator socket address {} is unreachable!", validatorIPPort);
+        } else {
+            log.info(validatorIPPort + " is reachable");
+        }
     }
 
     @Override
     public void getvalidatorIp() {
         if (validatorIPPort != null) {
-            System.out.println("Current validator ip:port = " + validatorIPPort);
             log.info("Current validator ip:port = {}", validatorIPPort);
         }
     }
@@ -506,13 +512,12 @@ public class SdnIpFib implements SdnIpService {
     @Override
     public void validateAllRoutes() {
         if (!isRPKIenabled) {
-            log.warn("sdn-ip rpki feature is not enabled");
-            System.out.println("SDN-IP RPKI feature is not enabled");
+            log.warn("SDN-IP RPKI feature is not enabled");
             return;
         }
 
+        log.info("RPKI VALIDATOR IP = " + validatorIPPort);
         log.info("Running RPKI VALIDATION for all existing BGP Information...");
-        System.out.println("RPKI VALIDATOR IP = " + validatorIPPort);
         Collection<BgpRouteEntry> bgpRoute = bgpInfoService.getBgpRoutes4();
         for (BgpRouteEntry route : bgpRoute) {
             //   log.info(route.prefix().toString() + " " + route.getAsPath().toString());
@@ -536,7 +541,6 @@ public class SdnIpFib implements SdnIpService {
     @Override
     public void enableRpki() {
         if (validatorIPPort == null) {
-            System.out.println("Please set the RPKI Validator ip:port first");
             log.warn("RPKI Validator IP:PORT is not set");
             return;
         }
@@ -544,7 +548,6 @@ public class SdnIpFib implements SdnIpService {
         isRPKIenabled = true;
         validateAllRoutes();
         } else {
-            System.out.println("RPKI feature is enabled. Do NOTHING here.");
             log.info("RPKI feature is enabled. DO NOTHING HERE.");
         }
     }
@@ -554,19 +557,18 @@ public class SdnIpFib implements SdnIpService {
         if (isRPKIenabled) {
             isRPKIenabled = false;
             Collection<ResolvedRoute> resolvedRoutes = routeService.getResolvedRoutes(new RouteTableId("ipv4"));
-            System.out.println("Reinstalling intents for all ipv4 resolved routes");
+            log.info("Reinstalling intents for all ipv4 resolved routes");
             for (ResolvedRoute rr : resolvedRoutes) {
-                System.out.println(rr.toString());
+                log.info(rr.toString());
                 update(rr);
             }
         } else {
-            System.out.println("SDN-IP feature is not enabled!");
+            log.warn("SDN-IP RPKI feature is not enabled!");
         }
     }
 
     @Override
     public void isRpkiEnabled() {
-        System.out.println("SDN-IP RPKI feature enabled: " + isRPKIenabled);
         log.info("SDN-IP RPKI feature enabled: {}", isRPKIenabled);
 
     }
@@ -619,7 +621,7 @@ public class SdnIpFib implements SdnIpService {
         if (routevalidity.equals("not-found")) {
             routevalidity = "Unknown";
         }
-        log.info("Found new route update ! ASN ={} ,prefix = {}, validity = ",
+        log.info("Found new route update ! ASN = {} ,prefix = {}, validity = ",
                 asorigin, prefix.toString(), routevalidity);
         return routevalidity;
     }

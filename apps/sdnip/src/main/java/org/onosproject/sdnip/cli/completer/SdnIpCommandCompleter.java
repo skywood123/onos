@@ -31,4 +31,5 @@ public class SdnIpCommandCompleter extends AbstractChoicesCompleter {
     public List<String> choices() {
         return Lists.newArrayList("set-encap");
     }
+
 }

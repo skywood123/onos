@@ -45,7 +45,7 @@ public final class Rpkirov {
             //"12735" , "31.223.93.0/25"           --invalid
             return callMe(validatorip, asnumber, prefix);
         } catch (Exception e) {
-            System.out.println("Error when connecting to RPKI VALIDATOR");
+        //    System.out.println("Error when connecting to RPKI VALIDATOR");
             //e.printStackTrace();
             return null;
         }
@@ -63,9 +63,9 @@ public final class Rpkirov {
         con.setRequestProperty("User-Agent", "Mozilla/5.0");
         int responseCode = con.getResponseCode();
       //  System.out.println("\nSending 'GET' request to URL : " + url);
-        System.out.println("Response Code : " + responseCode);
+     //   System.out.println("Response Code : " + responseCode);
         if (responseCode != 200) {
-            System.out.println("Error when contacting RPKI VALIDATOR " + responseCode);
+     //       System.out.println("Error when contacting RPKI VALIDATOR " + responseCode);
             return null;
         }
 
