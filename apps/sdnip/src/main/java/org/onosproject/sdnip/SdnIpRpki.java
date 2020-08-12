@@ -19,7 +19,7 @@ package org.onosproject.sdnip;
 /**
  * Features to interact with BGP RPKI ROV.
  */
-public interface SdnIpService {
+public interface SdnIpRpki {
 
     /**
      * Validate all known BGP routes.

@@ -79,7 +79,7 @@ import static org.onosproject.net.EncapsulationType.NONE;
  */
 @Component(immediate = true, enabled = false)
 @Service
-public class SdnIpFib implements SdnIpService {
+public class SdnIpFib implements SdnIpRpki {
     private Logger log = LoggerFactory.getLogger(getClass());
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)

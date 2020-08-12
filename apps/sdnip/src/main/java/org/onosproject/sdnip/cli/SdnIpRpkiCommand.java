@@ -21,7 +21,7 @@ import org.apache.karaf.shell.api.action.Command;
 import org.apache.karaf.shell.api.action.Completion;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onosproject.cli.AbstractShellCommand;
-import org.onosproject.sdnip.SdnIpService;
+import org.onosproject.sdnip.SdnIpRpki;
 import org.onosproject.sdnip.cli.completer.SdnIpRpkiCommandCompleter;
 
 /**
@@ -32,7 +32,7 @@ import org.onosproject.sdnip.cli.completer.SdnIpRpkiCommandCompleter;
         description = "Manage SDN-IP RPKI features")
 public class SdnIpRpkiCommand extends AbstractShellCommand {
 
-    private SdnIpService sdnIpService;
+    private SdnIpRpki sdnIpRpki;
 
     @Argument(index = 0, name = "command", description = "Command name (enable|" +
             "disable|show|set|validateallroutes)", required = true, multiValued = false)
@@ -46,8 +46,8 @@ public class SdnIpRpkiCommand extends AbstractShellCommand {
     @Override
     protected void doExecute() throws Exception {
 
-        if (sdnIpService == null) {
-            sdnIpService = get(SdnIpService.class);
+        if (sdnIpRpki == null) {
+            sdnIpRpki = get(SdnIpRpki.class);
         }
 
         SdnIpRpkiEnum enumCommand = SdnIpRpkiEnum.enumFromString(command);
@@ -55,21 +55,21 @@ public class SdnIpRpkiCommand extends AbstractShellCommand {
         if (enumCommand != null) {
             switch (enumCommand) {
                 case ENABLE:
-                    sdnIpService.enableRpki();
+                    sdnIpRpki.enableRpki();
                     break;
                 case DISABLE:
-                    sdnIpService.disableRpki();
+                    sdnIpRpki.disableRpki();
                     break;
                 case SHOW:
-                    sdnIpService.isRpkiEnabled();
-                    sdnIpService.getvalidatorIp();
+                    sdnIpRpki.isRpkiEnabled();
+                    sdnIpRpki.getvalidatorIp();
                     break;
                 case VALIDATE_ALL_ROUTES:
-                    sdnIpService.validateAllRoutes();
+                    sdnIpRpki.validateAllRoutes();
                     break;
                 case SET:
                     if (socketaddress != null) {
-                        sdnIpService.setvalidatorIp(socketaddress);
+                        sdnIpRpki.setvalidatorIp(socketaddress);
                     } else {
                         print("validator IP:PORT not found!");
                     }
