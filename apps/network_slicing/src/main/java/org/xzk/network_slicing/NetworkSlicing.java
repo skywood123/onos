@@ -172,6 +172,7 @@ public class NetworkSlicing implements netinfo{
     
     }
 
+
     private class VirtualNetworkPacketProcessor implements PacketProcessor {
 
         @Override
@@ -728,6 +729,7 @@ public class NetworkSlicing implements netinfo{
             return inOutPorts;
         }
 
+
         private void initializeMplsLabelPool(List<InOutPort> inOutPorts) {
             for (InOutPort inOutPort : inOutPorts) {
                 if (!mplsLabelPool.containsKey(inOutPort.getDeviceId())) {
@@ -772,6 +774,14 @@ public class NetworkSlicing implements netinfo{
                     .forDevice(deviceId)
                     .build();
             flowRuleStorage.addFlowRule(networkId, flowPair, flowRule, mplsLabel);
+        }
+
+        class utility {
+
+            Set<ConnectPoint> getPrecomputePath(){
+                extractInOutPorts();
+            }
+
         }
 
         class InOutPort {
