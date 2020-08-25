@@ -1,0 +1,37 @@
+COMPILE_DEPS = CORE_DEPS + JACKSON + METRICS + CLI + [
+    "@minimal_json//jar",
+    "//protocols/p4runtime/model:onos-protocols-p4runtime-model",
+    "//protocols/p4runtime/api:onos-protocols-p4runtime-api",
+    "//drivers/default:onos-drivers-default",
+    "//apps/virtual/api:onos-apps-virtual-api",
+    "//apps/virtual/app:onos-apps-virtual-app",
+    "@org_apache_karaf_shell_console//jar",
+    #   "//cli:onos-cli-native",
+    # "//apps/meterconfiguration:onos-apps-meterconfiguration",
+]
+
+BUNDLES = [
+    "//apps/network_slicing:onos-apps-network_slicing",
+]
+
+#osgi_jar(
+#    deps = COMPILE_DEPS,
+#)
+
+osgi_jar_with_tests(
+    karaf_command_packages = [
+        "org.xzk.network_slicing.cli",
+        # "org.onosproject.sdnip.cli.completer",
+    ],
+    # test_deps = TEST_DEPS,
+    deps = COMPILE_DEPS,
+)
+
+onos_app(
+    app_name = "org.xzk.network_slicing",
+    category = "Meter",
+    description = "Getting Meter in P4 Switch",
+    required_apps = [],
+    title = "Network_slicing",
+    url = "http://onosproject.org",
+)

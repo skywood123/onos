@@ -37,7 +37,7 @@ from time import sleep
 from subprocess import call
 
 from mininet.cli import CLI
-from mininet.link import TCLink
+from mininet.link import TCLink,Intf
 from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import RemoteController, Host
@@ -265,6 +265,7 @@ def main(args):
     net = Mininet(topo=topo, build=False, controller=[controller])
 
     net.build()
+    collectorIntf = Intf( 'veth_1', node=net.nameToNode[ "s12" ] )
     net.start()
 
     print "Network started"

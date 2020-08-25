@@ -167,6 +167,14 @@ class ONOSBmv2Switch(Switch):
         else:
             self.onosDeviceId = "device:bmv2:%s" % self.name
         self.p4DeviceId = BMV2_DEFAULT_DEVICE_ID
+        if self.name == "s11":
+            self.p4DeviceId=1
+        if self.name == "s12":
+            self.p4DeviceId=2
+        if self.name == "s21":
+            self.p4DeviceId=3
+        if self.name == "s22":
+            self.p4DeviceId=4
         self.logfd = None
         self.bmv2popen = None
         self.stopped = True
@@ -322,7 +330,7 @@ nodes {{
                 self.thriftPort = pickUnusedPort()
             writeToFile("/tmp/bmv2-%s-thrift-port" % self.name, self.thriftPort)
             cmdString = self.getBmv2CmdString()
-
+            print(cmdString)
         if self.dryrun:
             info("\n*** DRY RUN (not executing %s)\n" % self.targetName)
 
