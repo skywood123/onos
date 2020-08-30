@@ -776,47 +776,116 @@ public class NetworkSlicing implements netinfo{
             flowRuleStorage.addFlowRule(networkId, flowPair, flowRule, mplsLabel);
         }
 
-        class utility {
 
-            Set<ConnectPoint> getPrecomputePath(){
-                extractInOutPorts();
-            }
 
+    }
+    class InOutPort {
+        private DeviceId deviceId;
+        private PortNumber inPort;
+        private PortNumber outPort;
+
+        InOutPort(DeviceId deviceId, PortNumber inPort, PortNumber outPort) {
+            this.deviceId = deviceId;
+            this.inPort = inPort;
+            this.outPort = outPort;
         }
 
-        class InOutPort {
-            private DeviceId deviceId;
-            private PortNumber inPort;
-            private PortNumber outPort;
+        DeviceId getDeviceId() {
+            return deviceId;
+        }
 
-            InOutPort(DeviceId deviceId, PortNumber inPort, PortNumber outPort) {
-                this.deviceId = deviceId;
-                this.inPort = inPort;
-                this.outPort = outPort;
-            }
+        PortNumber getInPort() {
+            return inPort;
+        }
 
-            DeviceId getDeviceId() {
-                return deviceId;
-            }
+        PortNumber getOutPort() {
+            return outPort;
+        }
 
-            PortNumber getInPort() {
-                return inPort;
-            }
-
-            PortNumber getOutPort() {
-                return outPort;
-            }
-
-            @Override
-            public String toString() {
-                return "InOutPort{" +
-                        "deviceId=" + deviceId.toString() +
-                        ", inPort=" + inPort.toString() +
-                        ", outPort=" + outPort.toString() +
-                        '}';
-            }
+        @Override
+        public String toString() {
+            return "InOutPort{" +
+                    "deviceId=" + deviceId.toString() +
+                    ", inPort=" + inPort.toString() +
+                    ", outPort=" + outPort.toString() +
+                    '}';
         }
     }
+
+    public Set<ConnectPoint> pathcalculation(NetworkId networkId, ConnectPoint cpsource, ConnectPoint cpdest){
+        // Custom implementation of path computation
+
+
+            // Get all the virtual links available
+            Set<VirtualLink> virtualLinks = virtualNetworkAdminService.getVirtualLinks(networkId);
+
+            // Construct Graph
+            VirtualNetworkGraph virtualNetworkGraph = new VirtualNetworkGraph();
+            for (VirtualLink virtualLink : virtualLinks) {
+                if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
+                    virtualNetworkGraph.addEdge(virtualLink.src().deviceId(), virtualLink.dst().deviceId());
+                }
+            }
+
+            // If it's A->B->C, it will return C, B, A. Order is reversed
+            ArrayList<DeviceId> computedPath = virtualNetworkGraph.bfsForShortestPath(cpsource.deviceId(),
+                                                                                      cpdest.deviceId());
+            Collections.reverse(computedPath);
+
+
+        // Get Links in the path
+
+            List<Link> links = new LinkedList<>();
+            for (int i = 0; i < computedPath.size() - 1; i++) {
+                for (VirtualLink virtualLink : virtualLinks) {
+                    if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
+                        if (virtualLink.src().deviceId().equals(computedPath.get(i)) &&
+                                virtualLink.dst().deviceId().equals(computedPath.get(i + 1))) {
+                            links.add(virtualLink);
+                        }
+                    }
+                }
+            }
+
+
+            List<InOutPort> inOutPorts = new LinkedList<>();
+            for (int i = 0; i < links.size(); i++) {
+
+                if (i == 0) {
+                    inOutPorts.add(new InOutPort(
+                            links.get(i).src().deviceId(),
+                            cpsource.port(),
+                            links.get(i).src().port()
+                    ));
+                } else {
+                    inOutPorts.add(new InOutPort(
+                            links.get(i).src().deviceId(),
+                            links.get(i - 1).dst().port(),
+                            links.get(i).src().port()
+                    ));
+                }
+
+                if (i == links.size() - 1) {
+                    inOutPorts.add(new InOutPort(
+                            links.get(i).dst().deviceId(),
+                            links.get(i).dst().port(),
+                            cpdest.port()
+                    ));
+                }
+
+            }
+            Set<ConnectPoint> prepath = new HashSet<>();
+
+            for(InOutPort item : inOutPorts){
+                prepath.add(new ConnectPoint(item.deviceId,item.inPort));
+                prepath.add(new ConnectPoint(item.deviceId,item.outPort));
+            }
+            return prepath;
+
+
+
+    }
+
 
     private class VirtualNetworkTopologyListener implements TopologyListener {
 

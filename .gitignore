@@ -41,3 +41,6 @@ sonar-project.properties
 out/
 
 bazel-*
+
+apps/network_slicing/.git/
+apps/pipeconfexercise/.git/
