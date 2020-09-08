@@ -1,0 +1,31 @@
+COMPILE_DEPS = CORE_DEPS + JACKSON + METRICS + CLI + [
+    "@minimal_json//jar",
+    "//protocols/p4runtime/model:onos-protocols-p4runtime-model",
+    "//protocols/p4runtime/api:onos-protocols-p4runtime-api",
+    "//drivers/default:onos-drivers-default",
+    "//apps/virtual/api:onos-apps-virtual-api",
+    "//apps/virtual/app:onos-apps-virtual-app",
+    "@org_apache_karaf_shell_console//jar",
+]
+
+BUNDLES = [
+    "//apps/meterconfiguration:onos-apps-meterconfiguration",
+]
+
+osgi_jar(
+    karaf_command_packages = [
+        "org.onosproject.meterconfiguration.cli",
+    ],
+    deps = COMPILE_DEPS,
+)
+
+onos_app(
+    app_name = "org.onosproject.meterconfig",
+    category = "Meter",
+    description = "Getting Meter in P4 Switch",
+    included_bundles = BUNDLES,
+    required_apps = [
+    ],
+    title = "MeterConfig",
+    url = "http://onosproject.org",
+)
