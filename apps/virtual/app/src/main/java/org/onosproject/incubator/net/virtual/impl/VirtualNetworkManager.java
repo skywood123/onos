@@ -219,8 +219,20 @@ public class VirtualNetworkManager
         VirtualNetworkProvider provider = getProvider(DefaultVirtualLink.PID);
         Link.State state = Link.State.INACTIVE;
         if (provider != null) {
+            //debug
+            log.info("It is not null though");
             boolean traversable = provider.isTraversable(physicalSrc, physicalDst);
+            if(traversable) {
+                log.info("traversable");
+            } else {
+                log.info("not traversable");
+            }
             state = traversable ? Link.State.ACTIVE : Link.State.INACTIVE;
+        } else {
+            log.warn("provider is null");
+            //FIXME temporarily fix
+            state = Link.State.ACTIVE;
+
         }
         return store.addLink(networkId, src, dst, state, null);
     }

@@ -15,6 +15,12 @@
  */
 package org.xzk.network_slicing;
 
+
+import org.onosproject.meterconfiguration.BandwidthInventory;
+import org.onosproject.meterconfiguration.BandwidthInventoryService;
+import org.onosproject.meterconfiguration.Metering;
+import org.onosproject.meterconfiguration.MeteringService;
+import org.onosproject.meterconfiguration.Record;
 import org.osgi.service.component.annotations.Component;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.osgi.service.component.annotations.Reference;
@@ -52,7 +58,6 @@ import java.util.stream.StreamSupport;
 
 @Component(immediate = true)
 @Service
-
 public class NetworkSlicing implements netinfo{
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -81,6 +86,12 @@ public class NetworkSlicing implements netinfo{
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected EdgePortService edgePortService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected BandwidthInventoryService bandwidthInventory;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected MeteringService metering;
 
     //Disable for compile
    // @Reference(cardinality = ReferenceCardinality.MANDATORY)
@@ -179,16 +190,25 @@ public class NetworkSlicing implements netinfo{
         public void process(PacketContext packetContext) {
             // Stop processing if the packet has already been handled.
             // Nothing much more can be done.
-            if (packetContext.isHandled()) return;
+            if (packetContext.isHandled()) {
+           //     log.info("Packet is handled");
+                return;
+            }
 
             InboundPacket inboundPacket = packetContext.inPacket();
             Ethernet ethernetPacket = inboundPacket.parsed();
 
             // Only process packets coming from the network edge
-            if (!isEdgePort(packetContext)) return;
+            if (!isEdgePort(packetContext)) {
+                log.info("Packet is not coming from edge");
+                return;
+            }
 
             // Do not process null packets
-            if (ethernetPacket == null) return;
+            if (ethernetPacket == null) {
+                log.info("ethernetPacket is null");
+                return;
+            }
 
             // Retrieve TenantId Information
             TenantId currentTenantId = getTenantId(packetContext);
@@ -201,7 +221,10 @@ public class NetworkSlicing implements netinfo{
                     packetContext,
                     currentNetworkId
             );
-            if (sourceHost == null) return;
+            if (sourceHost == null) {
+                log.info("Source Host is null");
+                return;
+            }
 
             switch (EthType.EtherType.lookup(ethernetPacket.getEtherType())) {
                 case ARP:
@@ -557,6 +580,13 @@ public class NetworkSlicing implements netinfo{
 
             FlowPair flowPair = new FlowPair(src, dst);
 
+            Set<ConnectPoint> sourcedest = getSourceDest(sourceHost, destinationHost);
+
+
+            Record record = bandwidthInventory.findRecord(currentNetworkId, sourcedest );
+
+
+
             for (int i = inOutPorts.size() - 1; i >= 0; i--) {
                 selector = DefaultTrafficSelector.builder();
                 treatment = DefaultTrafficTreatment.builder();
@@ -615,6 +645,9 @@ public class NetworkSlicing implements netinfo{
                     treatment.setOutput(outPort);
                     //Disable for compile
                     //meterservice.match_mpls_p4meter(currentDeviceId,currentLabel,outPort,currentNetworkId);
+
+
+                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,currentLabel);
                     storeFlowRule(flowPair, selector, treatment, null, currentDeviceId, currentNetworkId);
                 } else {
                     // LSRs
@@ -645,6 +678,10 @@ public class NetworkSlicing implements netinfo{
                     //Disable for compile
                     //meterservice.match_mpls_p4meter(currentDeviceId,currentLabel,outPort,currentNetworkId);
 
+
+
+                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,currentLabel);
+
                     storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId);
                 }
 
@@ -664,6 +701,10 @@ public class NetworkSlicing implements netinfo{
             // Get all the virtual links available
             Set<VirtualLink> virtualLinks = virtualNetworkAdminService.getVirtualLinks(networkId);
 
+            if(virtualLinks.isEmpty()) {
+                log.warn("Empty virtualLinks");
+                return new ArrayList<>();
+            }
             // Construct Graph
             VirtualNetworkGraph virtualNetworkGraph = new VirtualNetworkGraph();
             for (VirtualLink virtualLink : virtualLinks) {
@@ -812,6 +853,15 @@ public class NetworkSlicing implements netinfo{
         }
     }
 
+    public Set<ConnectPoint> getSourceDest(VirtualHost sourceHost, VirtualHost destHost){
+
+        Set<ConnectPoint> sourceDest = new HashSet<>();
+        sourceDest.add(new ConnectPoint(sourceHost.location().deviceId(),sourceHost.location().port()));
+        sourceDest.add(new ConnectPoint(destHost.location().deviceId(),destHost.location().port()));
+        return sourceDest;
+
+
+    }
     public Set<ConnectPoint> pathcalculation(NetworkId networkId, ConnectPoint cpsource, ConnectPoint cpdest){
         // Custom implementation of path computation
 

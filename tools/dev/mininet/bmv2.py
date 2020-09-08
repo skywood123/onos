@@ -167,6 +167,8 @@ class ONOSBmv2Switch(Switch):
         else:
             self.onosDeviceId = "device:bmv2:%s" % self.name
         self.p4DeviceId = BMV2_DEFAULT_DEVICE_ID
+        '''
+       #changing for deviceId
         if self.name == "s11":
             self.p4DeviceId=1
         if self.name == "s12":
@@ -175,6 +177,7 @@ class ONOSBmv2Switch(Switch):
             self.p4DeviceId=3
         if self.name == "s22":
             self.p4DeviceId=4
+        '''
         self.logfd = None
         self.bmv2popen = None
         self.stopped = True
