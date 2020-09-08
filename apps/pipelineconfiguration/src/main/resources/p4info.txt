@@ -1,0 +1,314 @@
+pkg_info {
+  arch: "v1model"
+}
+tables {
+  preamble {
+    id: 37691998
+    name: "ingress_control.forwarding.l2_fwd"
+    alias: "l2_fwd"
+  }
+  match_fields {
+    id: 1
+    name: "standard_metadata.ingress_port"
+    bitwidth: 9
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ethernet.dest_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "hdr.ethernet.src_addr"
+    bitwidth: 48
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "hdr.ethernet.eth_type"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 5
+    name: "hdr.mpls.label"
+    bitwidth: 20
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 6
+    name: "hdr.mpls.s"
+    bitwidth: 1
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 7
+    name: "hdr.ipv4.ipv4_dst"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 27553634
+  }
+  action_refs {
+    id: 31931553
+  }
+  action_refs {
+    id: 16882670
+  }
+  action_refs {
+    id: 23741244
+  }
+  action_refs {
+    id: 26171629
+  }
+  action_refs {
+    id: 30692833
+  }
+  action_refs {
+    id: 21257015
+  }
+  direct_resource_ids: 322422835
+  size: 1024
+}
+tables {
+  preamble {
+    id: 48319555
+    name: "ingress_control.tenant_meter_ingress_control.tenant_uplink_meter_table"
+    alias: "tenant_uplink_meter_table"
+  }
+  match_fields {
+    id: 1
+    name: "standard_metadata.egress_spec"
+    bitwidth: 9
+    match_type: EXACT
+  }
+  match_fields {
+    id: 2
+    name: "hdr.mpls.label"
+    bitwidth: 20
+    match_type: EXACT
+  }
+  action_refs {
+    id: 30447879
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 46758903
+    name: "ingress_control.tenant_meter_ingress_control.tenant_uplink_meter_filtering_table"
+    alias: "tenant_uplink_meter_filtering_table"
+  }
+  match_fields {
+    id: 1
+    name: "my_metadata.packet_colour"
+    bitwidth: 8
+    match_type: EXACT
+  }
+  action_refs {
+    id: 28952881
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+actions {
+  preamble {
+    id: 21257015
+    name: "NoAction"
+    alias: "NoAction"
+    annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 27553634
+    name: "ingress_control.forwarding.set_out_port"
+    alias: "set_out_port"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 30692833
+    name: "ingress_control.forwarding._drop"
+    alias: "forwarding._drop"
+  }
+}
+actions {
+  preamble {
+    id: 31931553
+    name: "ingress_control.forwarding.send_to_cpu"
+    alias: "send_to_cpu"
+  }
+}
+actions {
+  preamble {
+    id: 16882670
+    name: "ingress_control.forwarding.mpls_push"
+    alias: "mpls_push"
+  }
+  params {
+    id: 1
+    name: "mpls_label_id"
+    bitwidth: 20
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 23741244
+    name: "ingress_control.forwarding.mpls_pop"
+    alias: "mpls_pop"
+  }
+  params {
+    id: 1
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 26171629
+    name: "ingress_control.forwarding.mpls_swap"
+    alias: "mpls_swap"
+  }
+  params {
+    id: 1
+    name: "mpls_label_id"
+    bitwidth: 20
+  }
+  params {
+    id: 2
+    name: "port"
+    bitwidth: 9
+  }
+}
+actions {
+  preamble {
+    id: 28952881
+    name: "ingress_control.tenant_meter_ingress_control._drop"
+    alias: "tenant_meter_ingress_control._drop"
+  }
+}
+actions {
+  preamble {
+    id: 30447879
+    name: "ingress_control.tenant_meter_ingress_control.read_meter_and_tag"
+    alias: "read_meter_and_tag"
+  }
+  params {
+    id: 1
+    name: "tenant_outport"
+    bitwidth: 8
+  }
+}
+counters {
+  preamble {
+    id: 316044271
+    name: "ingress_control.port_counter_ingress_control.ingress_port_counter"
+    alias: "ingress_port_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 256
+}
+counters {
+  preamble {
+    id: 302609902
+    name: "egress_control.port_counter_egress_control.egress_port_counter"
+    alias: "egress_port_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  size: 256
+}
+direct_counters {
+  preamble {
+    id: 322422835
+    name: "ingress_control.forwarding.flow_counter"
+    alias: "flow_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 37691998
+}
+meters {
+  preamble {
+    id: 338585679
+    name: "ingress_control.port_meter_ingress_control.ingress_port_meter"
+    alias: "ingress_port_meter"
+  }
+  spec {
+    unit: BYTES
+  }
+  size: 256
+}
+meters {
+  preamble {
+    id: 336394864
+    name: "ingress_control.tenant_meter_ingress_control.tenant_port_meter"
+    alias: "tenant_port_meter"
+  }
+  spec {
+    unit: BYTES
+  }
+  size: 256
+}
+meters {
+  preamble {
+    id: 346526552
+    name: "egress_control.port_meter_egress_control.egress_port_meter"
+    alias: "egress_port_meter"
+  }
+  spec {
+    unit: BYTES
+  }
+  size: 256
+}
+controller_packet_metadata {
+  preamble {
+    id: 75577906
+    name: "packet_in"
+    alias: "packet_in"
+    annotations: "@controller_header(\"packet_in\")"
+  }
+  metadata {
+    id: 1
+    name: "ingress_port"
+    bitwidth: 16
+  }
+}
+controller_packet_metadata {
+  preamble {
+    id: 77596559
+    name: "packet_out"
+    alias: "packet_out"
+    annotations: "@controller_header(\"packet_out\")"
+  }
+  metadata {
+    id: 1
+    name: "egress_port"
+    bitwidth: 16
+  }
+}
+type_info {
+}
