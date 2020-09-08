@@ -6,7 +6,7 @@ COMPILE_DEPS = CORE_DEPS + [
 ]
 
 BUNDLES = [
-    "//apps/pipeconfexercise:onos-apps-pipeconfexercise",
+    "//apps/pipelineconfiguration:onos-apps-pipelineconfiguration",
 ]
 
 osgi_jar(

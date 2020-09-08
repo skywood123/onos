@@ -253,8 +253,8 @@ ONOS_APPS = [
     "//apps/workflow:onos-apps-workflow-oar",
     "//apps/workflow/ofoverlay:onos-apps-workflow-ofoverlay-oar",
     "//apps/packet-throttle:onos-apps-packet-throttle-oar",
-    "//apps/pipeconfexercise:onos-apps-pipeconfexercise-oar",
-    "//apps/meterconfiguration:onos-apps-meterconfiguration-oar",
+    "//apps/pipelineconfiguration:onos-apps-pipelineconfiguration-oar",
+    "//apps/meterconfigurationapp:onos-apps-meterconfigurationapp-oar",
     "//apps/network_slicing:onos-apps-network_slicing",
 ]
 

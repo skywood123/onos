@@ -9,7 +9,7 @@ COMPILE_DEPS = CORE_DEPS + JACKSON + METRICS + CLI + [
 ]
 
 BUNDLES = [
-    "//apps/meterconfiguration:onos-apps-meterconfiguration",
+    "//apps/meterconfigurationapp:onos-apps-meterconfigurationapp",
 ]
 
 osgi_jar(

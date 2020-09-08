@@ -8,7 +8,7 @@ COMPILE_DEPS = CORE_DEPS + JACKSON + METRICS + CLI + [
     "@org_apache_karaf_shell_console//jar",
     #   "//cli:onos-cli-native",
     # "//apps/meterconfiguration:onos-apps-meterconfiguration",
-    "//apps/meterconfiguration:onos-apps-meterconfiguration",
+    "//apps/meterconfigurationapp:onos-apps-meterconfigurationapp",
 ]
 
 BUNDLES = [
