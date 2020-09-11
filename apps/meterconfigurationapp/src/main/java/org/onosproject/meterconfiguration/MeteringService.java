@@ -11,4 +11,5 @@ import java.util.Set;
 public interface MeteringService {
 
     public void compute(NetworkId networkId, Record recordEntry, ConnectPoint connectPoint, Set<ConnectPoint> sourcedest, MplsLabel mplsLabel);
+
 }

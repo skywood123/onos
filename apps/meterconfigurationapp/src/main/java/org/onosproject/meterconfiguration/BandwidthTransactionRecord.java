@@ -29,6 +29,15 @@ public class BandwidthTransactionRecord {
     public void addRecord(RecordType type, NetworkId networkId, long bandwidth, Set<ConnectPoint> connectPoints, Set<ConnectPoint> sourcedest){
         records.add(new Record(type, networkId, bandwidth, connectPoints, sourcedest));
     }
+    public String dumpRecords() {
+
+        String recordsInformation= "";
+        for(Record record : records){
+            recordsInformation = recordsInformation + "\n" + record.toString();
+        }
+
+        return recordsInformation;
+    }
 
     /**
      * get bandwidth allocated for the virtual network

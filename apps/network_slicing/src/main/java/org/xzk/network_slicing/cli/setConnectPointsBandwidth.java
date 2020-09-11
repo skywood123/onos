@@ -15,6 +15,7 @@ import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.xzk.network_slicing.NetworkSlicing;
+import org.xzk.network_slicing.netinfo;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -42,7 +43,7 @@ public class setConnectPointsBandwidth extends AbstractShellCommand {
     @Argument(index = 5,name="port2", description = "portnumber", required = true, multiValued = false)
     Long port2 = null;
 
-    private NetworkSlicing validation = getService(NetworkSlicing.class);
+    private netinfo validation = getService(netinfo.class);
     private VirtualNetworkAdminService virtualNetworkAdminService = getService(VirtualNetworkAdminService.class);
 
     private BandwidthInventoryService bandwidthInventory = getService(BandwidthInventoryService.class);
@@ -60,8 +61,17 @@ public class setConnectPointsBandwidth extends AbstractShellCommand {
         sourcedest.add(cpsource);
         sourcedest.add(cpdest);
 
+        Set<ConnectPoint> forwardConnectPoints = validation.pathcalculation(networkId, cpsource, cpdest);
+        Set<ConnectPoint> returnConnectPoints = validation.pathcalculation(networkId, cpdest, cpsource);
+        Set<ConnectPoint> overallConnectPoints = new HashSet<>();
+        if(!forwardConnectPoints.equals(returnConnectPoints)) {
+            overallConnectPoints.addAll(forwardConnectPoints);
+            overallConnectPoints.addAll(returnConnectPoints);
+        } else {
+            overallConnectPoints = forwardConnectPoints;
+        }
         bandwidthInventory.requestBandwidth(
-               RecordType.END_POINTS, networkId, bandwidth, validation.pathcalculation(networkId, cpsource, cpdest), sourcedest
+               RecordType.END_POINTS, networkId, bandwidth, overallConnectPoints , sourcedest
         );
 
     }

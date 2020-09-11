@@ -14,6 +14,7 @@ public interface BandwidthInventoryService {
 
     public boolean requestBandwidth(RecordType type, NetworkId networkId, long bandwidth, Set<ConnectPoint> connectPoints, Set<ConnectPoint> sourcedest);
 
+    public void printall();
 
 
 }

@@ -181,10 +181,11 @@ public class Metering implements MeteringService{
                 }
 
                 //direct the traffic to that index
-                insert_metering_rule(connectPoint.port(),deviceId,index,mplsLabel);
-
-
-
+        //for verifying purpose logging
+                log.info("Configuring Device : {}   ,   Bandwidth allowed : {}  ,   MeterCellIndex: {}",deviceId,bandwidth,index);
+                //If end point flow, give higher priority
+                insert_metering_rule(recordType,connectPoint.port(),deviceId,index,mplsLabel);
+                log.info("Inserting Metering Rule : Device: {}  ,   UplinkPort: {}  ,   Index: {}   ,   MatchingMplsLabel: {}", deviceId,connectPoint.port(),index,mplsLabel.toString());
 
 
 
@@ -226,7 +227,7 @@ public class Metering implements MeteringService{
         //       log.warn("dk what is happening :(");
     }
 
-    private void insert_metering_rule(PortNumber uplinkport, DeviceId deviceId, int metercellindex, MplsLabel mplsLabel){
+    private void insert_metering_rule(RecordType recordType, PortNumber uplinkport, DeviceId deviceId, int metercellindex, MplsLabel mplsLabel){
         String TENANT_METER_CONTROL="ingress_control.tenant_meter_ingress_control.";
         PiTableId TENANT_UPLINK_TABLE= PiTableId.of(TENANT_METER_CONTROL+ "tenant_uplink_meter_table");
 
@@ -250,7 +251,11 @@ public class Metering implements MeteringService{
         PiAction execute_meter= PiAction.builder().withId(READ_METER_AND_TAG).withParameter(meterindex).build();
         //    PiAction execute_meter2= PiAction.builder().withId(READ_METER_AND_TAG).withParameter(meterindex2).build();
 
-        insertPiFlowRule(deviceId,TENANT_UPLINK_TABLE,matchlabelout,execute_meter);
+        if(recordType == RecordType.NETWORK) {
+            insertPiFlowRule(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter);
+        } else if (recordType == RecordType.END_POINTS) {
+            insertPiFlowRuleHigherPriority(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter);
+        }
         //   insertPiFlowRule(DeviceId.deviceId("device:bmv2:s1"),TENANT_UPLINK_TABLE,match2,execute_meter2);
 
         PiTableId TENANT_FILTERING_TABLE = PiTableId.of(TENANT_METER_CONTROL + "tenant_uplink_meter_filtering_table");
@@ -270,6 +275,18 @@ public class Metering implements MeteringService{
         FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)
                 .forTable(tableId)
                 .withPriority(1000)
+                .fromApp(appId)
+                //   .withIdleTimeout(60)
+                .makePermanent()
+                .withSelector(DefaultTrafficSelector.builder().matchPi(piCriterion).build())
+                .withTreatment(DefaultTrafficTreatment.builder().piTableAction(piAction).build())
+                .build();
+        flowRuleService.applyFlowRules(rule);
+    }
+    private void insertPiFlowRuleHigherPriority(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction){
+        FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)
+                .forTable(tableId)
+                .withPriority(2000)
                 .fromApp(appId)
                 //   .withIdleTimeout(60)
                 .makePermanent()

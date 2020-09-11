@@ -143,6 +143,7 @@ public class BandwidthInventory implements BandwidthInventoryService{
         for(ConnectPoint connectPoint : connectPoints){
             decision = comparator(connectPoint,bandwidth);
             if (!decision) {
+                log.warn("Request is not satisfied. ConnectPoint {} cannot satisfy the requested bandwidth.", connectPoint.toString());
                 return false;
             }
         }
@@ -158,6 +159,22 @@ public class BandwidthInventory implements BandwidthInventoryService{
 
     }
 
+    //debugging method to verify items
+    public void printall(){
+
+        log.info("-------------------------------------------------DEBUGGING-------------------------------------------------------");
+        log.info("-----------------------------------------------------------------------------------------------------------------");
+        log.info("CONNECTPOINT BANDWIDTH INFORMATION");
+        for(ConnectPoint connectPoint : cpb.keySet()){
+            log.info("ConnectPoint: {}  ;   Bandwidth: {}Mbps  ;   AvailableBandwidth: {}", connectPoint , cpb.get(connectPoint).getBandwidth() , cpb.get(connectPoint).getAvailableBandwidth() );
+        }
+        log.info("-----------------------------------------------------------------------------------------------------------------");
+        log.info("BANDWIDTH TRANSACTION RECORD");
+        log.info(record.dumpRecords());
+
+
+    }
+
 
 
     /**
@@ -168,7 +185,7 @@ public class BandwidthInventory implements BandwidthInventoryService{
      */
     private boolean comparator(ConnectPoint connectPoint, long bandwidth){
 
-            return (cpb.get(connectPoint).getAvailableBandwidth() - bandwidth) > 0;
+            return (cpb.get(connectPoint).getAvailableBandwidth() - bandwidth) >= 0;
 
     }
 

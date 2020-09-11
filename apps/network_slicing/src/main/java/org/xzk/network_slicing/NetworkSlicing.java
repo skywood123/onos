@@ -16,6 +16,7 @@
 package org.xzk.network_slicing;
 
 
+
 import org.onosproject.meterconfiguration.BandwidthInventory;
 import org.onosproject.meterconfiguration.BandwidthInventoryService;
 import org.onosproject.meterconfiguration.Metering;
@@ -56,8 +57,8 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
-@Component(immediate = true)
-@Service
+@Component(immediate = true , service = netinfo.class)
+
 public class NetworkSlicing implements netinfo{
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -678,9 +679,8 @@ public class NetworkSlicing implements netinfo{
                     //Disable for compile
                     //meterservice.match_mpls_p4meter(currentDeviceId,currentLabel,outPort,currentNetworkId);
 
-
-
-                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,currentLabel);
+                    // meter matching the swapped new mplsLabel
+                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,previousLabel);
 
                     storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId);
                 }
@@ -862,9 +862,10 @@ public class NetworkSlicing implements netinfo{
 
 
     }
+    @Override
     public Set<ConnectPoint> pathcalculation(NetworkId networkId, ConnectPoint cpsource, ConnectPoint cpdest){
         // Custom implementation of path computation
-
+        //FIXME given sourcedest forward and return path might be different
 
             // Get all the virtual links available
             Set<VirtualLink> virtualLinks = virtualNetworkAdminService.getVirtualLinks(networkId);

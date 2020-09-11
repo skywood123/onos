@@ -27,6 +27,23 @@ public class Record {
         this.sourcedest = sourcedest;
     }
 
+    @Override
+    public String toString(){
+        String sourceanddestination=" ";
+        String netconnectPoints=" ";
+        if(sourcedest!= null){
+            for(ConnectPoint connectPoint : sourcedest)
+                sourceanddestination = sourceanddestination + " " + connectPoint.toString();
+        }
+        if(connectPoints!=null){
+            for(ConnectPoint connectPoint : connectPoints)
+                netconnectPoints = netconnectPoints + " " + connectPoint.toString();
+        }
+        String recordInfo = "Record : Network Type : " + type + "  ,   NetworkId: " + networkId.id() + "   ,   Bandwidth: "+ bandwidth +
+                "  ,   Source and Destination : "+sourceanddestination+" ,   ConnectPoints: " + netconnectPoints;
+        return recordInfo;
+    }
+
 
 
     public long getBandwidth(){
