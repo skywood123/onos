@@ -2,6 +2,8 @@ package org.xzk.network_slicing.helper;
 
 import org.onlab.packet.MplsLabel;
 import org.onosproject.incubator.net.virtual.NetworkId;
+import org.onosproject.net.DeviceId;
+import org.onosproject.net.PortNumber;
 import org.onosproject.net.flow.FlowRule;
 import org.xzk.network_slicing.models.FlowPair;
 import org.xzk.network_slicing.models.FlowRuleInformation;
@@ -18,12 +20,12 @@ public class FlowRuleStorage {
         this.flowRuleStorage = new HashMap<>();
     }
 
-    public void addFlowRule(NetworkId networkId, FlowPair flowPair, FlowRule flowRule, MplsLabel mplsLabel) {
+    public void addFlowRule(NetworkId networkId, FlowPair flowPair, FlowRule flowRule, MplsLabel mplsLabel, DeviceId deviceId, PortNumber sourcePort, PortNumber destPort) {
         if (!flowRuleStorage.containsKey(networkId)) flowRuleStorage.put(networkId, new HashMap<>());
         if (!flowRuleStorage.get(networkId).containsKey(flowPair))
             flowRuleStorage.get(networkId).put(flowPair, new LinkedList<>());
 
-        FlowRuleInformation flowRuleInformation = new FlowRuleInformation(flowRule, mplsLabel);
+        FlowRuleInformation flowRuleInformation = new FlowRuleInformation(flowRule, mplsLabel, deviceId, sourcePort, destPort);
         flowRuleStorage.get(networkId).get(flowPair).add(flowRuleInformation);
     }
 

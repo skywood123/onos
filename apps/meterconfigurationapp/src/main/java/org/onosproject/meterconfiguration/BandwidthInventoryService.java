@@ -16,5 +16,9 @@ public interface BandwidthInventoryService {
 
     public void printall();
 
+    public Record updateRecord(NetworkId networkId, RecordType recordType, Set<ConnectPoint> sourcedest, long newbandwidth);
+
+    public Record removingRecord(NetworkId networkId, Set<ConnectPoint> sourcedest);
+
 
 }

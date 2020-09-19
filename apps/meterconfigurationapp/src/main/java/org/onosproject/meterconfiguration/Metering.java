@@ -1,7 +1,6 @@
 package org.onosproject.meterconfiguration;
 
 
-
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onlab.packet.MplsLabel;
 import org.onosproject.component.ComponentService;
@@ -10,6 +9,7 @@ import org.onosproject.core.CoreService;
 import org.onosproject.incubator.net.virtual.NetworkId;
 import org.onosproject.incubator.net.virtual.VirtualNetworkService;
 import org.onosproject.net.ConnectPoint;
+import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
 import org.onosproject.net.device.DeviceEvent;
@@ -23,7 +23,6 @@ import org.onosproject.net.flow.DefaultTrafficTreatment;
 import org.onosproject.net.flow.FlowRule;
 import org.onosproject.net.flow.FlowRuleService;
 import org.onosproject.net.flow.criteria.PiCriterion;
-import org.onosproject.net.meter.Meter;
 import org.onosproject.net.pi.model.PiActionId;
 import org.onosproject.net.pi.model.PiActionParamId;
 import org.onosproject.net.pi.model.PiMatchFieldId;
@@ -50,8 +49,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
 
 @Component(immediate = true, service = MeteringService.class)
 public class Metering implements MeteringService{
@@ -66,6 +67,9 @@ public class Metering implements MeteringService{
     private ApplicationId appId;
     Map<DeviceId,MeterMetadata> deviceMeterCellMetadata = new HashMap<>();
     Map<DeviceId,ArrayList<MeterCellConfig>> deviceMeterCellConfig = new HashMap<>();
+
+    //Having knowledge of flowrule inserted
+    Map<DeviceId,Set<ExtraInfoFlowRule>> deviceFlowRule = new HashMap<>();
 
     //  @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     //  private DeviceService deviceService;
@@ -125,9 +129,240 @@ public class Metering implements MeteringService{
         log.info("Stopped");
     }
 
+    @Override
+    public void printall(){
+        log.info("------------------------------------Debuggin Metering lists-----------------------------------");
+        log.info("----------------------------------------------------------------------------------------------");
+        log.info("----------------------------------------------------------------------------------------------");
+        log.info("-------------------------------------DeviceMeterCellMetadata----------------------------------");
+        for(DeviceId deviceId : deviceMeterCellMetadata.keySet()){
+            log.info("DeviceId : {} ; MeterCellMetadata Occupied Index: {}",deviceId,deviceMeterCellMetadata.get(deviceId).occupiedIndex);
+        }
+        log.info("----------------------------------------------------------------------------------------------");
+        log.info("-------------------------------------DeviceMeterCellConfig----------------------------------");
+        for(DeviceId deviceId : deviceMeterCellConfig.keySet()){
+            log.info("Device : {} " , deviceId);
+            log.info("-------------------------------------------------------");
+            log.info("MeterCellConfigs");
+            log.info("-------------------------------------------------------");
+            for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
+                log.info("Index : {}", meterCellConfig.getIndex());
+                log.info("Record Type : {} , UplinkPort : {} , SourceDestConnectPoint : {}",meterCellConfig.recordtype, meterCellConfig.connectPoint.toString(), meterCellConfig.endPoints);
+                log.info("------------------------------------------------------------------------");
+            }
+        }
+        log.info("----------------------------------------------------------------------------------------------");
+        log.info("-------------------------------------DeviceFlowRules------------------------------------------");
+        for(DeviceId deviceId : deviceFlowRule.keySet()){
+            log.info("Device : {}",deviceId);
+            log.info("-------------------------------------------------------");
+            log.info("FlowRules");
+            log.info("-------------------------------------------------------");
+            for(ExtraInfoFlowRule extraInfoFlowRule : deviceFlowRule.get(deviceId)){
+                log.info("Redirecting to meter index {} ; MatchingLabel : {} ; MatchingUplinkPort : {}",extraInfoFlowRule.metercellindex,extraInfoFlowRule.mplsLabel,extraInfoFlowRule.uplinkport);
+                log.info("----------------------------------------------------------------------");
+            }
+
+        }
+
+    }
+
     private void initializeDeviceInfo(DeviceId deviceId) {
         deviceMeterCellConfig.put(deviceId,new ArrayList<>());
         deviceMeterCellMetadata.put(deviceId,new MeterMetadata());
+        deviceFlowRule.put(deviceId, new HashSet<>());
+    }
+
+    //As a action response to bandwidth record updates
+    //Update to network bandwidth amount; update to flow bandwidth amount
+    //find out the meterCellIndexs and change the amount
+    //no need to delete flow rules
+    @Override
+    public void bandwidthRecordUpdated(NetworkId networkId, Record updatedRecord){
+        for(DeviceId deviceId : deviceMeterCellConfig.keySet()){
+            for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)){
+                if(meterCellConfig.compareRecord(networkId,updatedRecord.getType(),updatedRecord.getSourcedest())) {
+                    int index = meterCellConfig.index;
+                    long newBandwidth = updatedRecord.getBandwidth();
+                    setmeterconfig(newBandwidth,deviceId,index);
+                    log.info("Changing bandwidth {} meter index {} to new allocated bandwidth {}",deviceId,index,newBandwidth);
+                }
+            }
+        }
+    }
+
+    //As a action response to bandwidth record deletion(Can't remove a network bandwidth record but a flow bw record)
+    //let say deleting a flow bandwidth record
+    //remove the flows inserted for this two connect points path
+    //maintain the mplslabel and insert flow rules to the meterCell for network
+    @Override
+    public void deletingFlowRuleRelatedToRecord(NetworkId networkId, Record deletingRecord, Record networkRecord){
+        Set<MeterCellConfig> deletingMeterCellConfigList = new HashSet<>();
+        for(DeviceId deviceId: deviceMeterCellConfig.keySet()){
+
+            Set<MeterCellConfig> temporarydeletingMeterCellConfig = new HashSet<>();
+
+            for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)){
+                if(meterCellConfig.compareRecord(networkId, deletingRecord.getType(),deletingRecord.getSourcedest())){
+                    deletingMeterCellConfigList.add(meterCellConfig);
+                    temporarydeletingMeterCellConfig.add(meterCellConfig);
+
+                }
+            }
+            //to avoid concurrent modification error for the arraylist
+            for(MeterCellConfig meterCellConfig: temporarydeletingMeterCellConfig){
+                deviceMeterCellConfig.get(deviceId).remove(meterCellConfig);
+            }
+        }
+
+        //return the index to the metadata
+        deletingMeterCellConfigList.forEach(
+                meterCellConfig -> deviceMeterCellMetadata.get(meterCellConfig.connectPoint.deviceId()).returnavailableIndex(meterCellConfig.getIndex()));
+
+
+        Set<ExtraInfoFlowRule> deletingflowRuleSet = new HashSet<>();
+
+        for(MeterCellConfig meterCellConfig : deletingMeterCellConfigList){
+            DeviceId deviceId = meterCellConfig.connectPoint.deviceId();
+            int index = meterCellConfig.getIndex();
+
+            //Find out flow rules pointing to this meter index and delete the flow rules
+            Set<ExtraInfoFlowRule> flowRuleSet = new CopyOnWriteArraySet<>();
+            flowRuleSet.addAll(deviceFlowRule.get(deviceId));
+            //to avoid concurrent modification error
+            for(ExtraInfoFlowRule extraInfoFlowRule : flowRuleSet) {
+                if(extraInfoFlowRule.getMeterIndex()==index){
+                    flowRuleService.removeFlowRules(extraInfoFlowRule.flowRule);
+                    deletingflowRuleSet.add(extraInfoFlowRule);
+
+                    //insert new flow rule here; need use the mplslabel of the previous label
+                    //find out the network meterconfig and send flow rules to it
+                    compute(networkId,networkRecord,meterCellConfig.connectPoint,null,extraInfoFlowRule.mplsLabel);
+                }
+            }
+        }
+            deletingflowRuleSet.forEach(extraInfoFlowRule -> deviceFlowRule.get(extraInfoFlowRule.deviceId).remove(extraInfoFlowRule));
+
+
+        deletingMeterCellConfigList = null;
+        deletingflowRuleSet = null;
+    }
+
+    //TODO
+    //Having a way listen to bandwidth Inventory events to trigger the above two methods response
+    //Workaround : use cli to invoke the methods necessary in here :)
+
+    //TODO
+    private void removeDevice(){
+        //an action/response to the device down
+        //remove the related thing in the list
+    }
+
+
+    //There is already a flow pair established
+    //Allow calling when creating ENDPOINTS record
+    //Find out the flow rules that used and pointing to network meterCellIndex and delete it
+    //Insert new flow rules and point to new meter cell index
+    public boolean deletingFlowRuleAndRedirectToNewMeterConfig(DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport, Set<ConnectPoint> sourcedest, NetworkId networkId, Record configuring){
+        if(deviceFlowRule.containsKey(deviceId)) {
+            Set<ExtraInfoFlowRule> flowRulesSet = deviceFlowRule.get(deviceId);
+            FlowRule toDelete;
+            for(ExtraInfoFlowRule extraInfoFlowRule : flowRulesSet) {
+                toDelete = extraInfoFlowRule.compareFlowRule(deviceId,mplsLabel,uplinkport);
+                if (toDelete != null) {
+                    flowRuleService.removeFlowRules(toDelete);
+                    if(!meterIsReferenced(deviceId,extraInfoFlowRule, extraInfoFlowRule.getMeterIndex())) {
+                        returningIndex(deviceId,extraInfoFlowRule.getMeterIndex());
+                    }
+                    //FIXME
+                    // will this get error
+                    deviceFlowRule.get(deviceId).remove(extraInfoFlowRule);
+                    //TODO TO BE verified
+                    ConnectPoint connectPoint = new ConnectPoint(deviceId,PortNumber.portNumber(uplinkport));
+                    if(configuring == null) {
+                        log.warn("No end point record found!");
+                        return false;
+                    }
+                     MeterCellConfig configForThis = new MeterCellConfig(networkId,RecordType.END_POINTS,connectPoint,deviceMeterCellMetadata.get(deviceId).getavailableIndex(networkId),sourcedest);
+                        deviceMeterCellConfig.get(deviceId).add(configForThis);
+                        int index = configForThis.index;
+                        long bandwidth = configuring.getBandwidth();
+                        setmeterconfig(bandwidth,deviceId,index);
+
+                    //direct the traffic to that index
+                    //for verifying purpose logging
+                    log.info("Configuring Device : {}   ,   Bandwidth allowed : {}  ,   MeterCellIndex: {}",deviceId,bandwidth,index);
+                    //If end point flow, give higher priority
+                    insert_metering_rule(RecordType.END_POINTS,connectPoint.port(),deviceId,index,mplsLabel);
+                    log.info("Inserting Metering Rule : Device: {}  ,   UplinkPort: {}  ,   Index: {}   ,   MatchingMplsLabel: {}", deviceId,connectPoint.port(),index,mplsLabel.toString());
+
+
+
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Delete flow rules in response to device down
+     * Deletion stick with routing service together to delete the flow rules affected
+     * @param deviceId
+     * @param mplsLabel
+     * @param uplinkport
+     * @return
+     */
+    public boolean deletingFlowRule(DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport){
+        if(deviceFlowRule.containsKey(deviceId)) {
+            Set<ExtraInfoFlowRule> flowRulesSet = deviceFlowRule.get(deviceId);
+            FlowRule toDelete;
+            for(ExtraInfoFlowRule extraInfoFlowRule : flowRulesSet) {
+                toDelete = extraInfoFlowRule.compareFlowRule(deviceId,mplsLabel,uplinkport);
+                if (toDelete != null) {
+                    flowRuleService.removeFlowRules(toDelete);
+                    if(!meterIsReferenced(deviceId,extraInfoFlowRule, extraInfoFlowRule.getMeterIndex())) {
+                        returningIndex(deviceId,extraInfoFlowRule.getMeterIndex());
+                    }
+
+                    deviceFlowRule.get(deviceId).remove(extraInfoFlowRule);
+
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    //return availableIndex and delete the metercellconfig using that index
+    private void returningIndex(DeviceId deviceId, int index) {
+        deviceMeterCellMetadata.get(deviceId).returnavailableIndex(index);
+
+        ArrayList<MeterCellConfig> meterCellConfigs = deviceMeterCellConfig.get(deviceId);
+        //to overcome concurrent modification error
+        ArrayList<MeterCellConfig> deleting = new ArrayList<>();
+        for(MeterCellConfig meterCellConfig : meterCellConfigs) {
+            if (meterCellConfig.getIndex() == index) {
+                deleting.add(meterCellConfig);
+            }
+        }
+        for(MeterCellConfig meterCellConfig : deleting){
+            deviceMeterCellConfig.get(deviceId).remove(meterCellConfig);
+        }
+    }
+
+    //check if this meter index still referenced by any flow rule
+    private boolean meterIsReferenced(DeviceId deviceId, ExtraInfoFlowRule exceptThisRule, int index){
+            Set<ExtraInfoFlowRule> flowRuleSet = deviceFlowRule.get(deviceId);
+            for(ExtraInfoFlowRule extraInfoFlowRule : flowRuleSet) {
+                if(extraInfoFlowRule == exceptThisRule) {
+                    continue;
+                }
+                if(extraInfoFlowRule.getMeterIndex() == index) {
+                    return true;
+                }
+            }
+            return false;
     }
 
     /**
@@ -174,7 +409,7 @@ public class Metering implements MeteringService{
                 }
                 //metercellconfig not found,create a new one and attach
                 if(index== -1){
-                    configForThis = new MeterCellConfig(networkId,recordType,connectPoint,deviceMeterCellMetadata.get(deviceId).getavailableIndex(networkId));
+                    configForThis = new MeterCellConfig(networkId,recordType,connectPoint,deviceMeterCellMetadata.get(deviceId).getavailableIndex(networkId),sourcedest);
                     deviceMeterCellConfig.get(deviceId).add(configForThis);
                     index= configForThis.index;
                     setmeterconfig(bandwidth,deviceId,index);
@@ -251,11 +486,9 @@ public class Metering implements MeteringService{
         PiAction execute_meter= PiAction.builder().withId(READ_METER_AND_TAG).withParameter(meterindex).build();
         //    PiAction execute_meter2= PiAction.builder().withId(READ_METER_AND_TAG).withParameter(meterindex2).build();
 
-        if(recordType == RecordType.NETWORK) {
-            insertPiFlowRule(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter);
-        } else if (recordType == RecordType.END_POINTS) {
-            insertPiFlowRuleHigherPriority(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter);
-        }
+
+        insertPiFlowRule(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter, mplsLabel,uplinkport.toLong(),metercellindex);
+
         //   insertPiFlowRule(DeviceId.deviceId("device:bmv2:s1"),TENANT_UPLINK_TABLE,match2,execute_meter2);
 
         PiTableId TENANT_FILTERING_TABLE = PiTableId.of(TENANT_METER_CONTROL + "tenant_uplink_meter_filtering_table");
@@ -271,6 +504,21 @@ public class Metering implements MeteringService{
 //private void insertPiFlowRule(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction)
     }
 
+    private void insertPiFlowRule(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction, MplsLabel mplsLabel, Long uplinkport, int metercellindex){
+        FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)
+                .forTable(tableId)
+                .withPriority(1000)
+                .fromApp(appId)
+                //   .withIdleTimeout(60)
+                .makePermanent()
+                .withSelector(DefaultTrafficSelector.builder().matchPi(piCriterion).build())
+                .withTreatment(DefaultTrafficTreatment.builder().piTableAction(piAction).build())
+                .build();
+        flowRuleService.applyFlowRules(rule);
+
+        //FIXME having a subclass to include the mpls label and uplink and meter index would be nice
+        deviceFlowRule.get(deviceId).add(new ExtraInfoFlowRule(rule,deviceId,mplsLabel,uplinkport,metercellindex));
+    }
     private void insertPiFlowRule(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction){
         FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)
                 .forTable(tableId)
@@ -283,18 +531,35 @@ public class Metering implements MeteringService{
                 .build();
         flowRuleService.applyFlowRules(rule);
     }
-    private void insertPiFlowRuleHigherPriority(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction){
-        FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)
-                .forTable(tableId)
-                .withPriority(2000)
-                .fromApp(appId)
-                //   .withIdleTimeout(60)
-                .makePermanent()
-                .withSelector(DefaultTrafficSelector.builder().matchPi(piCriterion).build())
-                .withTreatment(DefaultTrafficTreatment.builder().piTableAction(piAction).build())
-                .build();
-        flowRuleService.applyFlowRules(rule);
+
+    private class ExtraInfoFlowRule {
+        private FlowRule flowRule;
+        private DeviceId deviceId;
+        private MplsLabel mplsLabel;
+        private Long uplinkport;
+        private int metercellindex;
+
+        public ExtraInfoFlowRule (FlowRule flowRule, DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport, int metercellindex){
+            this.flowRule = flowRule;
+            this.deviceId = deviceId;
+            this.mplsLabel = mplsLabel;
+            this.uplinkport = uplinkport;
+            this.metercellindex = metercellindex;
+        }
+
+        public FlowRule compareFlowRule(DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport){
+            if((this.deviceId == deviceId) && (this.mplsLabel == mplsLabel) && (this.uplinkport == uplinkport)) {
+                return this.flowRule;
+            } else {
+                return null;
+            }
+        }
+        public Integer getMeterIndex(){
+            return this.metercellindex;
+        }
+
     }
+
 
 
     private class InternalDeviceListener implements DeviceListener {
@@ -309,11 +574,14 @@ public class Metering implements MeteringService{
                 case DEVICE_ADDED:
                     log.warn("event hit, type device_added");
                     log.warn(event.toString());
-                    if(deviceMeterCellMetadata.containsKey(event.subject().id())) {
+                    if(!deviceMeterCellMetadata.containsKey(event.subject().id())) {
                         deviceMeterCellMetadata.put(event.subject().id(),new MeterMetadata());
                     }
-                    if(deviceMeterCellConfig.containsKey(event.subject().id())) {
+                    if(!deviceMeterCellConfig.containsKey(event.subject().id())) {
                         deviceMeterCellConfig.put(event.subject().id(),new ArrayList<>());
+                    }
+                    if(!deviceFlowRule.containsKey(event.subject().id())) {
+                        deviceFlowRule.put(event.subject().id(),new HashSet<>());
                     }
                     break;
                 case DEVICE_UPDATED:
@@ -325,7 +593,8 @@ public class Metering implements MeteringService{
         }
     }
 
-
+    //config for Network : Uniquely identified by ; networkId, recordtype=NETWORK, connectPoint
+    //config for flows : Uniquely identified by ; networkId, recordtype=END_POINTS, connectPoint, endPoints(source&destination for the flow)
     class MeterCellConfig{
         NetworkId networkId;
         RecordType recordtype;
@@ -334,6 +603,8 @@ public class Metering implements MeteringService{
         Integer index;
         //if this meter is for endpoints
         Set<ConnectPoint> endPoints;
+        //TODO
+        //Add in bandwidth limit for this meter
 
         MeterCellConfig(NetworkId networkId, RecordType recordType, ConnectPoint connectPoint, Integer index) {
             this(networkId,recordType,connectPoint,index,null);
@@ -362,6 +633,23 @@ public class Metering implements MeteringService{
                 }
             }
             return false;
+        }
+        public boolean compareRecord(NetworkId networkId, RecordType recordType, Set<ConnectPoint> endPoints){
+            if(recordType == RecordType.END_POINTS) {
+                if(this.networkId.equals(networkId) && this.recordtype.equals(recordType) && this.endPoints.equals(endPoints)) {
+                    return true;
+                }
+            } else {
+                if(this.networkId.equals(networkId) && this.recordtype.equals(recordType) ) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+
+        public Integer getIndex() {
+            return index;
         }
 
     }
@@ -398,6 +686,14 @@ public class Metering implements MeteringService{
             }
             return index;
         }
+
+        public void returnavailableIndex(Integer index) {
+            if(occupiedIndex.contains(index)){
+                occupiedIndex.remove(index);
+                availableIndex.add(index);
+            }
+        }
+
         public Boolean anyEndPointMeter(NetworkId networkId){
             return availableEndPointsMeter.get(networkId);
         }

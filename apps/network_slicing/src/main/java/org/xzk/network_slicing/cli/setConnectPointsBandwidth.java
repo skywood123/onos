@@ -23,6 +23,7 @@ import java.util.Set;
 @Service
 @Command(scope = "onos", name = "setflowbandwidth",description = "set bandwidth for 2 connect points")
 
+//TODO add in completer class for the available device and port number
 public class setConnectPointsBandwidth extends AbstractShellCommand {
 
     @Argument(index = 0,name="networkId", description = "Network ID", required = true, multiValued = false)
@@ -70,9 +71,22 @@ public class setConnectPointsBandwidth extends AbstractShellCommand {
         } else {
             overallConnectPoints = forwardConnectPoints;
         }
-        bandwidthInventory.requestBandwidth(
+        boolean addRecord=bandwidthInventory.requestBandwidth(
                RecordType.END_POINTS, networkId, bandwidth, overallConnectPoints , sourcedest
         );
+
+        //FIXME
+        //this is deleting flow rules related to end points
+        //and trigger packet to ONOS, so having end point record for it
+        //somehow not good ?
+
+        //packet now matching network's record
+        //look into flow pair to see if it exist and take from there
+        //get the flowpair, mpls label, substitute with new meterconfig
+        if(addRecord) {
+            //update to use meter cell index of ENDPOINTS record
+            validation.updateToEndPointRecord(networkId, cpsource, cpdest);
+        }
 
     }
 

@@ -9,7 +9,10 @@ public class Record {
     private RecordType type;
     private NetworkId networkId;
     private long bandwidth;
+    //identify source and destination of a end point record; null in network record
     private Set<ConnectPoint> sourcedest;
+
+    //identify the connectPoints cover by this record and the bandwidth is compliant
     private Set<ConnectPoint> connectPoints;
 
     Record(RecordType type, NetworkId networkId, long bandwidth, Set<ConnectPoint> connectPoints){
@@ -44,7 +47,18 @@ public class Record {
         return recordInfo;
     }
 
-
+    public void setConnectPoints(Set<ConnectPoint> newConnectPoints){
+        this.connectPoints = newConnectPoints;
+    }
+    public void addConnectPoint(ConnectPoint connectPoint){
+        connectPoints.add(connectPoint);
+    }
+    public void removeConnectPoint(ConnectPoint connectPoint){
+        connectPoints.remove(connectPoint);
+    }
+    public Set<ConnectPoint> getSourcedest(){
+        return this.sourcedest;
+    }
 
     public long getBandwidth(){
         return bandwidth;
@@ -54,6 +68,17 @@ public class Record {
         return type;
     }
 
+    public void setBandwidth(long bandwidth) {
+        this.bandwidth = bandwidth;
+    }
+
+    public Set<ConnectPoint> getConnectPoints(){
+        return this.connectPoints;
+    }
+
+    public NetworkId getNetworkId(){
+        return this.networkId;
+    }
     public boolean compare(RecordType type){
         if(type.equals(this.type)) {
             return true;

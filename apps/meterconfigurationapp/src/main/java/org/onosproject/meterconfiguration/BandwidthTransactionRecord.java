@@ -39,6 +39,7 @@ public class BandwidthTransactionRecord {
         return recordsInformation;
     }
 
+
     /**
      * get bandwidth allocated for the virtual network
      * @param networkId
@@ -68,6 +69,25 @@ public class BandwidthTransactionRecord {
         }
         return null;
     }
+
+    public Record deleteFlowRecord(NetworkId networkId, Set<ConnectPoint> sourcedest){
+        Record deletingRecord = getConnectPointsBandwidth(networkId, sourcedest);
+        if(deletingRecord != null){
+            records.remove(deletingRecord);
+        }
+        return deletingRecord;
+    }
+
+    public Set<Record> getRecordsByNetworkId(NetworkId networkId){
+        Set<Record> dump = new HashSet<>();
+        for(Record record : records){
+            if(record.compare(networkId)){
+                dump.add(record);
+            }
+        }
+        return dump;
+    }
+
 
 
 

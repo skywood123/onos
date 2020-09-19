@@ -10,5 +10,6 @@ public interface netinfo {
 
     public void getinfo();
     public Set<ConnectPoint> pathcalculation(NetworkId networkId, ConnectPoint cpsource, ConnectPoint cpdest);
+    public void updateToEndPointRecord(NetworkId networkId, ConnectPoint source, ConnectPoint destination);
 }
 

@@ -12,9 +12,12 @@ public class meteringcli extends AbstractShellCommand {
 
 
     private BandwidthInventoryService service = get(BandwidthInventoryService.class);
+    private MeteringService meterservice = get(MeteringService.class);
+
 
     @Override
     protected void doExecute() throws Exception {
         service.printall();
+        meterservice.printall();
     }
 }

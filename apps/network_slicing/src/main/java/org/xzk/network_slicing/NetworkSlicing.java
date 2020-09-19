@@ -22,6 +22,9 @@ import org.onosproject.meterconfiguration.BandwidthInventoryService;
 import org.onosproject.meterconfiguration.Metering;
 import org.onosproject.meterconfiguration.MeteringService;
 import org.onosproject.meterconfiguration.Record;
+import org.onosproject.meterconfiguration.RecordType;
+import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.osgi.service.component.annotations.Component;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.osgi.service.component.annotations.Reference;
@@ -526,7 +529,7 @@ public class NetworkSlicing implements netinfo{
 
             FlowPair flowPair = new FlowPair(src, dst);
 //            storeFlowRule(src, dst, selector, treatment, currentDeviceId, currentNetworkId);
-            storeFlowRule(flowPair, selector, treatment, null, currentDeviceId, currentNetworkId);
+            storeFlowRule(flowPair, selector, treatment, null, currentDeviceId, currentNetworkId, inPort,outPort);
         }
 
         private void forwardToDiffDevice(PacketContext packetContext, VirtualHost sourceHost, VirtualHost destinationHost, boolean isToBeRouted, NetworkId currentNetworkId) {
@@ -586,7 +589,21 @@ public class NetworkSlicing implements netinfo{
 
             Record record = bandwidthInventory.findRecord(currentNetworkId, sourcedest );
 
-
+            //Handling end points record after the record connectpoints is affected
+            if(record.getType() == RecordType.END_POINTS && record.getConnectPoints()==null){
+                bandwidthInventory.removingRecord(currentNetworkId,sourcedest);
+                Set<ConnectPoint> connectPoints = new HashSet<>();
+                connectPoints.addAll(pathcalculation(currentNetworkId,new ConnectPoint(sourceHost.location().deviceId(),sourceHost.location().port()),new ConnectPoint(destinationHost.location().deviceId(),destinationHost.location().port())));
+                if(bandwidthInventory.requestBandwidth(RecordType.END_POINTS,currentNetworkId,record.getBandwidth(),connectPoints,sourcedest)){
+                    log.info("New connectPoints updated to affected flow bandwidth record");
+                } else {
+                    record = bandwidthInventory.findRecord(currentNetworkId,sourcedest);
+                    log.warn("Unable to fulfil the bandwidth requirement {} for the flow between {}",record.getBandwidth(), record.getSourcedest());
+                    log.warn("Involving connect points : ", record.getConnectPoints());
+                    return;
+                }
+            }
+            //insert new set of connectpoints
 
             for (int i = inOutPorts.size() - 1; i >= 0; i--) {
                 selector = DefaultTrafficSelector.builder();
@@ -626,7 +643,7 @@ public class NetworkSlicing implements netinfo{
 
                     previousLabel = currentLabel;
 
-                    storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId);
+                    storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId, inPort,outPort);
                 } else if (currentDeviceId.equals(sourceHost.location().deviceId())) {
                     // Originating Switch
                     log.info("Flow installing for originating switch");
@@ -649,7 +666,7 @@ public class NetworkSlicing implements netinfo{
 
 
                     metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,currentLabel);
-                    storeFlowRule(flowPair, selector, treatment, null, currentDeviceId, currentNetworkId);
+                    storeFlowRule(flowPair, selector, treatment, null, currentDeviceId, currentNetworkId, inPort,outPort);
                 } else {
                     // LSRs
                     log.info("Flow installing for LSRs");
@@ -674,15 +691,17 @@ public class NetworkSlicing implements netinfo{
                     treatment.setMpls(previousLabel);
                     treatment.setOutput(outPort);
 
+                    // meter matching the swapped new mplsLabel
+                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,previousLabel);
+
                     previousLabel = currentLabel;
 
                     //Disable for compile
                     //meterservice.match_mpls_p4meter(currentDeviceId,currentLabel,outPort,currentNetworkId);
 
-                    // meter matching the swapped new mplsLabel
-                    metering.compute(currentNetworkId,record,new ConnectPoint(currentDeviceId,outPort),sourcedest,previousLabel);
 
-                    storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId);
+
+                    storeFlowRule(flowPair, selector, treatment, currentLabel, currentDeviceId, currentNetworkId, inPort,outPort);
                 }
 
                 // Build & send forwarding objective
@@ -805,7 +824,7 @@ public class NetworkSlicing implements netinfo{
         }
 
         // New FlowRuleStorageMechanism
-        private void storeFlowRule(FlowPair flowPair, TrafficSelector.Builder selector, TrafficTreatment.Builder treatment, MplsLabel mplsLabel, DeviceId deviceId, NetworkId networkId) {
+        private void storeFlowRule(FlowPair flowPair, TrafficSelector.Builder selector, TrafficTreatment.Builder treatment, MplsLabel mplsLabel, DeviceId deviceId, NetworkId networkId, PortNumber sourcePort, PortNumber destPort) {
             FlowRule flowRule = DefaultFlowRule.builder()
                     .withSelector(selector.build())
                     .withTreatment(treatment.build())
@@ -814,7 +833,7 @@ public class NetworkSlicing implements netinfo{
                     .fromApp(appId)
                     .forDevice(deviceId)
                     .build();
-            flowRuleStorage.addFlowRule(networkId, flowPair, flowRule, mplsLabel);
+            flowRuleStorage.addFlowRule(networkId, flowPair, flowRule, mplsLabel, deviceId, sourcePort, destPort);
         }
 
 
@@ -937,14 +956,99 @@ public class NetworkSlicing implements netinfo{
 
     }
 
+    //Find if there is flow rules between the end points in newly created ENDPOINTS record
+    //Supply the information(mplslabel, uplinkport) to metering service to delete previously installed flow rules using NETWORK record
+    //and insert new flow rules to use new meter cell index from ENDPOINTS record
+    public void updateToEndPointRecord(NetworkId networkId, ConnectPoint source, ConnectPoint destination) {
+        //look into the flow rules and figure out which flow pair
+        HashMap<FlowPair, List<FlowRuleInformation>> information = flowRuleStorage.getAllFlowsPerNetwork(networkId);
 
+        Set<FlowPair> toDelete = new HashSet<>();
+
+        for (FlowPair flowPair : information.keySet()) {
+            //search if the source connect point and destination connectpoint found within this flow pair( end hosts)
+            List<FlowRuleInformation> flowRules = information.get(flowPair);
+            boolean sourcefound = false;
+            boolean destinationfound = false;
+            for (FlowRuleInformation rule : flowRules) {
+                if (rule.compareSourceCP(source)) {
+                    sourcefound = true;
+                }
+                if (rule.compareDestinationCP(destination)) {
+                    destinationfound = true;
+                }
+            }
+            if (sourcefound && destinationfound) {
+                toDelete.add(flowPair);
+                toDelete.add(new FlowPair(flowPair.getDst(), flowPair.getSrc()));
+                break;
+            }
+        }
+
+        if (toDelete.size() == 2) {
+            for (FlowPair flowPair : toDelete) {
+                List<FlowRuleInformation> removingInformation = information.get(flowPair);
+                for (FlowRuleInformation flowRuleInfo : removingInformation) {
+                    DeviceId currentDevice = flowRuleInfo.getFlowRuleDeviceId();
+
+                    //FIXME
+                    //no need to delete
+         //           if (flowRuleInfo.getMplsLabel() != null) {
+         //               NetworkSlicing.mplsLabelPool.get(currentDevice).returnLabel(flowRuleInfo.getMplsLabel().toInt());
+
+                        //call metering to delete the corresponding rules
+                        //TODO
+                        //deleting (uplinkport + mplsLabel) flow rule in meter service
+                        //
+         //           }
+
+                    MplsLabel label = null;
+                    List<Instruction> instructionList = flowRuleInfo.getFlowRule().treatment().allInstructions();
+                    for (Instruction instruction : instructionList) {
+                        if (instruction.type() == Instruction.Type.L2MODIFICATION) {
+                            L2ModificationInstruction l2ModificationInstruction = (L2ModificationInstruction) instruction;
+                            if (l2ModificationInstruction.subtype() == L2ModificationInstruction.L2SubType.MPLS_LABEL ) {
+                                label = ((L2ModificationInstruction.ModMplsLabelInstruction) instruction).label();
+                                break;
+                            }
+                        }
+
+                    }
+                    if (label != null) {
+                        //delete the flowrules for it
+                        Set<ConnectPoint> sourcedest = new HashSet<>();
+                        sourcedest.add(source);
+                        sourcedest.add(destination);
+                        Record newRecord = bandwidthInventory.findRecord(networkId,sourcedest);
+                        metering.deletingFlowRuleAndRedirectToNewMeterConfig(currentDevice, label, flowRuleInfo.getOutPort(),sourcedest,networkId, newRecord);
+                        //insert new flowrules to the devices to match the traffic
+
+                    }
+
+                    //FIXME
+                    //no need to delete
+                  //  flowRuleService.removeFlowRules(flowRuleInfo.getFlowRule());
+
+
+                }
+                //FIXME
+                //no need to delete
+            //    flowRuleStorage.deleteFlowRules(networkId, flowPair);
+            }
+        }else {
+                log.warn("No flows removed between: {} and {}", source.toString(), destination.toString());
+        }
+
+
+
+
+    }
     private class VirtualNetworkTopologyListener implements TopologyListener {
 
         @Override
         public void event(TopologyEvent topologyEvent) {
 
             Set<DeviceId> affectedDevices = new HashSet<>();
-
             log.info(topologyEvent.toString());
             for (Event e : topologyEvent.reasons()) {
                 DefaultLink affectedLink = (DefaultLink) e.subject();
@@ -990,6 +1094,36 @@ public class NetworkSlicing implements netinfo{
                         if (flowRuleInfo.getMplsLabel() != null) {
                             NetworkSlicing.mplsLabelPool.get(currentDevice).returnLabel(flowRuleInfo.getMplsLabel().toInt());
                         }
+
+
+                //delete the underlying metering rules here
+                //START MODIFIYING
+
+                        MplsLabel label = null;
+                        List<Instruction> instructionList = flowRuleInfo.getFlowRule().treatment().allInstructions();
+                        for (Instruction instruction : instructionList) {
+                            if (instruction.type() == Instruction.Type.L2MODIFICATION) {
+                                L2ModificationInstruction l2ModificationInstruction = (L2ModificationInstruction) instruction;
+                                if (l2ModificationInstruction.subtype() == L2ModificationInstruction.L2SubType.MPLS_LABEL ) {
+                                    label = ((L2ModificationInstruction.ModMplsLabelInstruction) instruction).label();
+                                    break;
+                                }
+                            }
+
+                        }
+                        if (label != null) {
+                            //delete the flowrules for it
+                        //    Set<ConnectPoint> sourcedest = new HashSet<>();
+                         //   sourcedest.add(source);
+                         //   sourcedest.add(destination);
+                         //   Record newRecord = bandwidthInventory.findRecord(networkId,sourcedest);
+                         //   metering.deletingFlowRuleAndRedirectToNewMeterConfig(currentDevice, label, flowRuleInfo.getOutPort(),sourcedest,networkId, newRecord);
+                            metering.deletingFlowRule(currentDevice,label,flowRuleInfo.getOutPort());
+
+                        }
+
+                //END MODIFYING
+
                     }
                     NetworkSlicing.flowRuleStorage.deleteFlowRules(a.getKey(), flowPair);
                 }
