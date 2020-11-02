@@ -397,7 +397,7 @@ public class Meterconfig implements p4meterservice {
     //insert flow rule to direct traffic match against metercell index from edge port to uplink port
 
     private void insert_metering_rule(PortNumber uplinkport, DeviceId deviceId, int metercellindex, MplsLabel mplsLabel){
-        String TENANT_METER_CONTROL="ingress_control.tenant_meter_ingress_control.";
+        String TENANT_METER_CONTROL="ingress.tenant_meter_ingress_control.";
         PiTableId TENANT_UPLINK_TABLE= PiTableId.of(TENANT_METER_CONTROL+ "tenant_uplink_meter_table");
 
 
@@ -425,7 +425,7 @@ public class Meterconfig implements p4meterservice {
 
         PiTableId TENANT_FILTERING_TABLE = PiTableId.of(TENANT_METER_CONTROL + "tenant_uplink_meter_filtering_table");
 
-        PiMatchFieldId PACKET_COLOUR = PiMatchFieldId.of("my_metadata.packet_colour");
+        PiMatchFieldId PACKET_COLOUR = PiMatchFieldId.of("local_metadata.packet_colour");
         PiCriterion match_packet_colour = PiCriterion.builder().matchExact(PACKET_COLOUR,2).build();
 
         PiActionId _DROP = PiActionId.of(TENANT_METER_CONTROL + "_drop");
@@ -444,7 +444,7 @@ public class Meterconfig implements p4meterservice {
             int rate = (bandwidth*1000000)/8;
             PiMeterBand meterband=new PiMeterBand(rate,3000);
        //     PiMeterBand meterband2=new PiMeterBand(625000,3000);
-            PiMeterId meterId = PiMeterId.of("ingress_control.tenant_meter_ingress_control.tenant_port_meter");
+            PiMeterId meterId = PiMeterId.of("ingress.tenant_meter_ingress_control.tenant_port_meter");
             PiMeterCellId cellId=PiMeterCellId.ofIndirect(meterId,metercellindex);
             PiMeterCellConfig meter1=PiMeterCellConfig.builder()
                                         .withMeterBand(meterband)
@@ -478,7 +478,7 @@ public class Meterconfig implements p4meterservice {
     }
 
     private void getmeterconfig(){
-        PiMeterId tenant_outport_meter = PiMeterId.of("ingress_control.tenant_meter_ingress_control" +
+        PiMeterId tenant_outport_meter = PiMeterId.of("ingress.tenant_meter_ingress_control" +
                                                               ".tenant_port_meter");
         DeviceId deviceId = DeviceId.deviceId("device:bmv2:s3");
       //  DeviceService deviceService = handler().get(DeviceService.class);

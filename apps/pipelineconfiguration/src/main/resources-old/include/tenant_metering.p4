@@ -5,15 +5,15 @@
     // do at rx
     //input port from host
     //output port to switch
-
+#include "enum.p4"
 #include "headers.p4"
 //after mpls tagging
 //in onos app, insert table entry of matching the mpls label and output port
 
 control tenant_meter_ingress_control(inout headers_t hdr,
-                                     inout local_metadata_t local_metadata,
+                                     inout my_metadata_t my_metadata,
                                       inout standard_metadata_t standard_metadata){
-    meter(MAX_PORTS,MeterType.bytes) tenant_port_meter;
+    meter(MAX_PORT,MeterType.bytes) tenant_port_meter;
     // FIXME should be using indirect meter
     // Each flow for a tenant using different label
     // A tenant holding multiple MPLS labels
@@ -34,7 +34,7 @@ control tenant_meter_ingress_control(inout headers_t hdr,
        // hdr.metadata.setValid();
         //now tenant_outport = tenant_id
       //  hdr.metadata.tenant_id=tenant_id;
-        tenant_port_meter.execute_meter((bit<32>)tenant_outport,local_metadata.packet_colour);
+        tenant_port_meter.execute_meter((bit<32>)tenant_outport,my_metadata.packet_colour);
     }
 
     table tenant_uplink_meter_table{
@@ -53,7 +53,7 @@ control tenant_meter_ingress_control(inout headers_t hdr,
     table tenant_uplink_meter_filtering_table{
 
         key= {
-            local_metadata.packet_colour  : exact;
+            my_metadata.packet_colour  : exact;
         }
         actions = {
         _drop();

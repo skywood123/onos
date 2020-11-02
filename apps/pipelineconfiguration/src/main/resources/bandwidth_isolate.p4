@@ -1,136 +1,103 @@
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
 #include <core.p4>
 #include <v1model.p4>
 
-#include "include/enum.p4"
+#include "include/defines.p4"
 #include "include/headers.p4"
-#include "include/forwarding.p4"
-#include "include/port_counter.p4"
-#include "include/port_meter.p4"
-#include "include/packet_in_out.p4"
+#include "include/actions.p4"
+#include "include/int_definitions.p4"
+#include "include/int_headers.p4"
+#include "include/packet_io.p4"
+#include "include/port_counters.p4"
+#include "include/table0.p4"
+#include "include/checksums.p4"
+#include "include/int_parser.p4"
+#include "include/int_source.p4"
+#include "include/int_transit.p4"
+#include "include/int_sink.p4"
+#include "include/int_report.p4"
+#include "include/custom_headers.p4"
 #include "include/tenant_metering.p4"
-/*
-struct my_metadata_t {
-//   metadata_t metadata;
-}
 
-//Use of struct
-//does a packet necessarily contain all headers specified in struct ?
-//Nope. It's the set of possible header appear
-struct headers_t {
-    Ethernet_t ethernet;
-    Ipv4_t ipv4;
-    Mpls_t mpls;
-    packet_in_hdr packet_in;
-    packet_out_hdr packet_out;
+control ingress (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+  //  inout my_metadata_t my_metadata,
+    inout standard_metadata_t standard_metadata) {
 
-}
-*/
+    apply {
+        port_counters_ingress.apply(hdr, standard_metadata);
+        packetio_ingress.apply(hdr, standard_metadata);
+        table0_control.apply(hdr, local_metadata, standard_metadata);
+        //FIXME
+        //if i mark to drop the packet before processing source and sink, will problem occur?
+        tenant_meter_ingress_control.apply(hdr,local_metadata,standard_metadata);
+        process_int_source_sink.apply(hdr, local_metadata, standard_metadata);
 
-/*******************************************************************************************
-************************************** Parser *********************************************
-*****************************************************************************************/
-//parser configuration
-parser parser_impl (packet_in packet,
-                    out headers_t hdr,
-                    inout my_metadata_t my_metadata,
-                    inout standard_metadata_t standard_metadata) {
-    state start {
-        transition select(standard_metadata.ingress_port){
-        CPU_PORT : parse_packet_out;
-        default : parse_ethernet;
+        if (local_metadata.int_meta.source == _TRUE) {
+            process_int_source.apply(hdr, local_metadata, standard_metadata);
+        }
+
+        if (local_metadata.int_meta.sink == _TRUE && hdr.int_header.isValid()) {
+            // clone packet for Telemetry Report
+            // FIXME: this works only on BMv2
+            #ifdef TARGET_BMV2
+            clone3(CloneType.I2E, REPORT_MIRROR_SESSION_ID, standard_metadata);
+            #endif // TARGET_BMV2
         }
     }
-    //    transition select(packet.ethernet.eth_type){
-    //        ethertype_ipv4: parse_ipv4;
-    //        ethertype_mpls: parse_mpls;
-    //    }
-    state parse_packet_out{
-        packet.extract(hdr.packet_out);
-        transition parse_ethernet;
-    }
+}
 
-    state parse_ethernet{
-        packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.eth_type){
-            ethertype_mpls : parse_mpls;
-            ethertype_ipv4 : parse_ipv4;
-            default : accept;
+control egress (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+  //  inout my_metadata_t my_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    apply {
+        if(hdr.int_header.isValid()) {
+            process_int_transit.apply(hdr, local_metadata, standard_metadata);
+
+            #ifdef TARGET_BMV2
+            if (IS_I2E_CLONE(standard_metadata)) {
+                /* send int report */
+                process_int_report.apply(hdr, local_metadata, standard_metadata);
+            }
+
+            if (local_metadata.int_meta.sink == _TRUE && !IS_I2E_CLONE(standard_metadata)) {
+            #else
+            if (local_metadata.int_meta.sink == _TRUE) {
+            #endif // TARGET_BMV2
+                process_int_sink.apply(hdr, local_metadata, standard_metadata);
+             }
         }
-    }
-
-
-    state parse_mpls{
-  //      packet.extract(hdr.metadata);
-        packet.extract(hdr.mpls);
-        transition parse_ipv4;
-    }
-    //assuming top is always ipv4
-    state parse_ipv4{
-        packet.extract(hdr.ipv4);
-        transition accept;
-    }
- //   state parse_metadata{
-   //     packet.extract(hdr.metadata);
-     //   transition accept;
-  //  }
-}
-
-//ingress pipeline configuration
-
-control ingress_control(inout headers_t hdr,
-                        inout my_metadata_t my_metadata,
-                        inout standard_metadata_t standard_metadata) {
-
-        apply{
-        port_counter_ingress_control.apply(hdr,standard_metadata);
-        port_meter_ingress_control.apply(hdr,standard_metadata);
-   //     packet_out_control.apply(hdr,standard_metadata);
-        forwarding.apply(hdr,my_metadata,standard_metadata);
-        tenant_meter_ingress_control.apply(hdr,my_metadata,standard_metadata);
-
-        }
-}
-//only emit valid headers
-control deparser(packet_out packet, in headers_t hdr) {
-    apply {
-        packet.emit(hdr.packet_in);
-        packet.emit(hdr.ethernet);
-   //     packet.emit(hdr.metadata);
-        packet.emit(hdr.mpls);
-        packet.emit(hdr.ipv4);
-    }
-}
-
-control verify_checksum_control(inout headers_t hdr,
-                                inout my_metadata_t my_metadata) {
-    apply {
-    }
-}
-
-control compute_checksum_control(inout headers_t hdr,
-                                 inout my_metadata_t my_metadata) {
-    apply {
+        port_counters_egress.apply(hdr, standard_metadata);
+        packetio_egress.apply(hdr, standard_metadata);
     }
 }
 
 
-
-control egress_control(inout headers_t hdr,
-                        inout my_metadata_t my_metadata,
-                        inout standard_metadata_t standard_metadata) {
-    apply {
-
-        port_counter_egress_control.apply(hdr,standard_metadata);
-        port_meter_egress_control.apply(hdr,standard_metadata);
-    //    packet_in_control.apply(hdr,standard_metadata);
-    }
-}
-
-V1Switch(parser_impl(),
-         verify_checksum_control(),
-         ingress_control(),
-         egress_control(),
-         compute_checksum_control(),
-         deparser()
-         )
-          main;
+V1Switch(
+    int_parser(),
+    verify_checksum_control(),
+    ingress(),
+    egress(),
+    compute_checksum_control(),
+    int_deparser()
+) main;

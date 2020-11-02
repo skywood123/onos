@@ -46,17 +46,17 @@ public class PortStatisticsDiscoveryImple extends AbstractHandlerBehaviour imple
 
 
     public PiCounterId ingressCounterId(){
-        return PiCounterId.of("ingress_control.port_counter_ingress_control.ingress_port_counter");
+        return PiCounterId.of("ingress.port_counters_ingress.ingress_port_counter");
     }
 
     public PiCounterId egressCounterId(){
-        return PiCounterId.of("egress_control.port_counter_egress_control.egress_port_counter");
+        return PiCounterId.of("egress.port_counters_egress.egress_port_counter");
     }
 
     private void setmeterconfig(){
         PiMeterBand meterband=new PiMeterBand(1,1);
         PiMeterBand meterband2=new PiMeterBand(1,1);
-        PiMeterId meterId = PiMeterId.of("ingress_control.tenant_meter_ingress_control.tenant_port_meter");
+        PiMeterId meterId = PiMeterId.of("ingress.tenant_meter_ingress_control.tenant_port_meter");
         PiMeterCellId cellId=PiMeterCellId.ofIndirect(meterId, 1);
         PiMeterCellConfig meters3=PiMeterCellConfig.builder()
                                     .withMeterBand(meterband)

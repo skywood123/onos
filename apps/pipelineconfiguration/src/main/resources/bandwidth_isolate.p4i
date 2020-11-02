@@ -2,6 +2,23 @@
 # 1 "<built-in>"
 # 1 "<command-line>"
 # 1 "bandwidth_isolate.p4"
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
 # 1 "/usr/local/share/p4c/p4include/core.p4" 1
 /*
 Copyright 2013-present Barefoot Networks, Inc.
@@ -85,7 +102,7 @@ match_kind {
     /// Longest-prefix match.
     lpm
 }
-# 2 "bandwidth_isolate.p4" 2
+# 19 "bandwidth_isolate.p4" 2
 # 1 "/usr/local/share/p4c/p4include/v1model.p4" 1
 /*
 Copyright 2013-present Barefoot Networks, Inc.
@@ -864,56 +881,120 @@ package V1Switch<H, M>(Parser<H, M> p,
                        ComputeChecksum<H, M> ck,
                        Deparser<H> dep
                        );
-# 3 "bandwidth_isolate.p4" 2
+# 20 "bandwidth_isolate.p4" 2
 
-# 1 "include/enum.p4" 1
-
-
-
-
-
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 27 "include/defines.p4"
+//from old code
 
 const bit<16> ethertype_ipv4= 0x0800;
 const bit<16> ethertype_mpls= 0x8847;
 const bit<16> ethertype_lldp= 0x08CC;
 const bit<16> ethertype_arp = 0x0806;
+# 44 "include/defines.p4"
+typedef bit<48> mac_t;
+typedef bit<32> ip_address_t;
+typedef bit<16> l4_port_t;
+typedef bit<9> port_t;
+typedef bit<16> next_hop_id_t;
 
-typedef bit<9> Port_t;
-const Port_t CPU_PORT=255;
+const port_t CPU_PORT = 255;
 
-typedef bit<2> MeterColour;
-const MeterColour MeterColour_GREEN = 0;
-const MeterColour MeterColour_YELLOW = 1;
-const MeterColour MeterColour_RED= 2;
-# 5 "bandwidth_isolate.p4" 2
+typedef bit<8> MeterColor;
+const MeterColor MeterColor_GREEN = 8w0; //8bit value 0
+const MeterColor MeterColor_YELLOW = 8w1; //8bit value 1
+const MeterColor MeterColor_RED = 8w2; // 8bit value 2
+# 22 "bandwidth_isolate.p4" 2
 # 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 
 
 
-header Ethernet_t{
-    bit<48> dest_addr;
-    bit<48> src_addr;
-    bit<16> eth_type;
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/headers.p4" 2
+
+@controller_header("packet_in")
+header packet_in_header_t {
+    bit<9> ingress_port; //old code using 16 bit for this
+    bit<7> _padding;
 }
 
-header Ipv4_t{
+@controller_header("packet_out")
+header packet_out_header_t {
+    bit<9> egress_port; //old code using 16 bit for this
+    bit<7> _padding;
+}
+
+header ethernet_t {
+    bit<48> dst_addr;
+    bit<48> src_addr;
+    bit<16> ether_type;
+}
+const bit<8> ETH_HEADER_LEN = 14;
+
+header ipv4_t {
     bit<4> version;
     bit<4> ihl;
     bit<6> dscp;
     bit<2> ecn;
-    bit<16> length;
-    bit<16> id;
-    bit<3> flag;
-    bit<13> frag_off;
+    bit<16> len;
+    bit<16> identification;
+    bit<3> flags;
+    bit<13> frag_offset;
     bit<8> ttl;
     bit<8> protocol;
     bit<16> hdr_checksum;
-    bit<32> ipv4_src;
-    bit<32> ipv4_dst;
-  //  varbit<128> options;                 //TODO check on varbit compilation and how it actually see how many bits are there for the options
+    bit<32> src_addr;
+    bit<32> dst_addr;
 }
+const bit<8> IPV4_MIN_HEAD_LEN = 20;
 
+//32 bit = 4 bytes
 header Mpls_t{
     bit<20> label;
     bit<3> exp;
@@ -921,258 +1002,1648 @@ header Mpls_t{
     bit<8> ttl;
 }
 
-//header metadata_t{
-//    bit<8> packet_colour;
-//    bit<8> tenant_id;
-//}
-
-
-@controller_header("packet_in")
-header packet_in_hdr{
-    bit<16> ingress_port;
+header tcp_t {
+    bit<16> src_port;
+    bit<16> dst_port;
+    bit<32> seq_no;
+    bit<32> ack_no;
+    bit<4> data_offset;
+    bit<3> res;
+    bit<3> ecn;
+    bit<6> ctrl;
+    bit<16> window;
+    bit<16> checksum;
+    bit<16> urgent_ptr;
 }
 
-@controller_header("packet_out")
-header packet_out_hdr{
-    bit<16> egress_port;
+header udp_t {
+    bit<16> src_port;
+    bit<16> dst_port;
+    bit<16> length_;
+    bit<16> checksum;
+}
+const bit<8> UDP_HEADER_LEN = 8;
+# 23 "bandwidth_isolate.p4" 2
+# 1 "include/actions.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+
+# 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/actions.p4" 2
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 22 "include/actions.p4" 2
+
+action nop() {
+    NoAction();
+}
+# 24 "bandwidth_isolate.p4" 2
+# 1 "include/int_definitions.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 22 "include/int_definitions.p4" 2
+
+/* indicate INT by DSCP value */
+const bit<6> DSCP_INT = 0x17;
+const bit<6> DSCP_MASK = 0x3F;
+
+typedef bit<48> timestamp_t;
+typedef bit<32> switch_id_t;
+
+const bit<8> INT_HEADER_LEN_WORD = 3;
+const bit<16> INT_HEADER_SIZE = 8;
+const bit<16> INT_SHIM_HEADER_SIZE = 4;
+
+const bit<8> CPU_MIRROR_SESSION_ID = 250;
+const bit<32> REPORT_MIRROR_SESSION_ID = 500;
+const bit<6> HW_ID = 1;
+const bit<8> REPORT_HDR_TTL = 64;
+# 25 "bandwidth_isolate.p4" 2
+# 1 "include/int_headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+
+
+# 1 "include/telemetry_report_headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+const bit<3> NPROTO_ETHERNET = 0;
+const bit<3> NPROTO_TELEMETRY_DROP_HEADER = 1;
+const bit<3> NPROTO_TELEMETRY_SWITCH_LOCAL_HEADER = 2;
+
+
+// Report Telemetry Headers
+header report_fixed_header_t {
+    bit<4> ver;
+    bit<4> len;
+    bit<3> nproto;
+    bit<6> rep_md_bits;
+    bit<1> d;
+    bit<1> q;
+    bit<1> f;
+    bit<6> rsvd;
+    bit<6> hw_id;
+    bit<32> sw_id;
+    bit<32> seq_no;
+    bit<32> ingress_tstamp;
+}
+const bit<8> REPORT_FIXED_HEADER_LEN = 16;
+
+// Telemetry drop report header
+header drop_report_header_t {
+    bit<32> switch_id;
+    bit<16> ingress_port_id;
+    bit<16> egress_port_id;
+    bit<8> queue_id;
+    bit<8> drop_reason;
+    bit<16> pad;
+}
+const bit<8> DROP_REPORT_HEADER_LEN = 12;
+
+// Switch Local Report Header
+header local_report_header_t {
+    bit<32> switch_id;
+    bit<16> ingress_port_id;
+    bit<16> egress_port_id;
+    bit<8> queue_id;
+    bit<24> queue_occupancy;
+    bit<32> egress_tstamp;
+}
+const bit<8> LOCAL_REPORT_HEADER_LEN = 16;
+
+header_union local_report_t {
+    drop_report_header_t drop_report_header;
+    local_report_header_t local_report_header;
+}
+# 24 "include/int_headers.p4" 2
+
+// INT version 1.0
+
+// INT header
+header int_header_t {
+    bit<4> ver;
+    bit<2> rep;
+    bit<1> c;
+    bit<1> e;
+    bit<1> m;
+    bit<7> rsvd1;
+    bit<3> rsvd2;
+    bit<5> hop_metadata_len;
+    bit<8> remaining_hop_cnt;
+    bit<4> instruction_mask_0003; /* split the bits for lookup */
+    bit<4> instruction_mask_0407;
+    bit<4> instruction_mask_0811;
+    bit<4> instruction_mask_1215;
+    bit<16> rsvd3;
 }
 
+// INT meta-value headers - different header for each value type
+header int_switch_id_t {
+    bit<32> switch_id;
+}
+header int_level1_port_ids_t {
+    bit<16> ingress_port_id;
+    bit<16> egress_port_id;
+}
+header int_hop_latency_t {
+    bit<32> hop_latency;
+}
+header int_q_occupancy_t {
+    bit<8> q_id;
+    bit<24> q_occupancy;
+}
+header int_ingress_tstamp_t {
+    bit<32> ingress_tstamp;
+}
+header int_egress_tstamp_t {
+    bit<32> egress_tstamp;
+}
+header int_level2_port_ids_t {
+    bit<32> ingress_port_id;
+    bit<32> egress_port_id;
+}
+header int_egress_port_tx_util_t {
+    bit<32> egress_port_tx_util;
+}
 
+header int_data_t {
+    // Maximum int metadata stack size in bits:
+    // (0x3F - 3) * 4 * 8 (excluding INT shim header and INT header)
+    varbit<1920> data;
+}
+
+// INT shim header for TCP/UDP
+header intl4_shim_t {
+    bit<8> int_type;
+    bit<8> rsvd1;
+    bit<8> len;
+    bit<6> dscp;
+    bit<2> rsvd2;
+}
+
+struct int_metadata_t {
+    switch_id_t switch_id;
+    bit<16> new_bytes;
+    bit<8> new_words;
+    bool source;
+    bool sink;
+    bool transit;
+    bit<8> intl4_shim_len;
+}
 
 struct headers_t {
-    Ethernet_t ethernet;
-    Ipv4_t ipv4;
+    packet_out_header_t packet_out;
+    packet_in_header_t packet_in;
+    // INT Report Encapsulation
+    ethernet_t report_ethernet;
+    ipv4_t report_ipv4;
+    udp_t report_udp;
+    // INT Report Headers
+    report_fixed_header_t report_fixed_header;
+    local_report_t report_local;
+    // Original packet's headers
+    ethernet_t ethernet;
     Mpls_t mpls;
-    packet_in_hdr packet_in;
-    packet_out_hdr packet_out;
-//    metadata_t metadata;
-
+    ipv4_t ipv4;
+    tcp_t tcp;
+    udp_t udp;
+    // INT specific headers
+    intl4_shim_t intl4_shim;
+    int_header_t int_header;
+    int_data_t int_data;
+    int_switch_id_t int_switch_id;
+    int_level1_port_ids_t int_level1_port_ids;
+    int_hop_latency_t int_hop_latency;
+    int_q_occupancy_t int_q_occupancy;
+    int_ingress_tstamp_t int_ingress_tstamp;
+    int_egress_tstamp_t int_egress_tstamp;
+    int_level2_port_ids_t int_level2_port_ids;
+    int_egress_port_tx_util_t int_egress_tx_util;
 }
 
+struct local_metadata_t {
+    bit<16> l4_src_port;
+    bit<16> l4_dst_port;
+    next_hop_id_t next_hop_id;
+    bit<16> selector;
+    int_metadata_t int_meta;
+    bool compute_checksum;
+    bit<8> packet_colour;
+}
 
-
-
+//from old code
 struct my_metadata_t {
    //metadata_t metadata;
    bit<8> packet_colour;
 }
-# 6 "bandwidth_isolate.p4" 2
-# 1 "include/forwarding.p4" 1
+# 26 "bandwidth_isolate.p4" 2
+# 1 "include/packet_io.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 
 
-# 1 "include/enum.p4" 1
-# 5 "include/forwarding.p4" 2
-//#include "../bandwidth_isolate.p4"
+
 # 1 "include/headers.p4" 1
-# 7 "include/forwarding.p4" 2
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/packet_io.p4" 2
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 22 "include/packet_io.p4" 2
 
+control packetio_ingress(inout headers_t hdr,
+                         inout standard_metadata_t standard_metadata) {
+    apply {
+        if (standard_metadata.ingress_port == CPU_PORT) {
+            standard_metadata.egress_spec = hdr.packet_out.egress_port;
+            hdr.packet_out.setInvalid();
+            exit;
+        }
+    }
+}
 
-//TODO add in MPLS tenant forwarding
-
-control forwarding(inout headers_t hdr,
-                        inout my_metadata_t my_metadata,
+control packetio_egress(inout headers_t hdr,
                         inout standard_metadata_t standard_metadata) {
-
-    direct_counter(CounterType.packets_and_bytes) flow_counter;
-    //TODO direct_meter<MeterColour>(MeterType.bytes) flow_meter;
-    //each device has its relative mpls label for each flow
-    // a meter cell index = tenant(mpls labels) Z with uplink(sw-sw) port
- //   meter (MAX_PORT, MeterType.bytes) tenantsSharedResourceMeter;
-
-    action set_out_port(Port_t port){
-        standard_metadata.egress_spec=port;
+    apply {
+        if (standard_metadata.egress_port == CPU_PORT) {
+            hdr.packet_in.setValid();
+            hdr.packet_in.ingress_port = standard_metadata.ingress_port;
+        }
     }
-    action _drop(){
-    mark_to_drop(standard_metadata);
+}
+# 27 "bandwidth_isolate.p4" 2
+# 1 "include/port_counters.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+
+# 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/port_counters.p4" 2
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 22 "include/port_counters.p4" 2
+
+control port_counters_ingress(inout headers_t hdr,
+                              inout standard_metadata_t standard_metadata) {
+
+   // counter(MAX_PORTS, CounterType.packets) ingress_port_counter;
+      counter(511,CounterType.packets_and_bytes) ingress_port_counter; //old code
+    apply {
+        ingress_port_counter.count((bit<32>) standard_metadata.ingress_port);
     }
-    action send_to_cpu(){
-                    standard_metadata.egress_spec=CPU_PORT;
-                    hdr.packet_in.setValid();
-                    hdr.packet_in.ingress_port=(bit<16>)standard_metadata.ingress_port; //this packet-in is triggered from
-            }
+}
+
+control port_counters_egress(inout headers_t hdr,
+                             inout standard_metadata_t standard_metadata) {
+
+  //  counter(MAX_PORTS, CounterType.packets) egress_port_counter;
+      counter(511,CounterType.packets_and_bytes) egress_port_counter; // old code
+      register<bit<32>>(511) port_bytes;
+    apply {
+        egress_port_counter.count((bit<32>) standard_metadata.egress_port);
+        bit<32> current_value=0;
+        //void read(out T result, in bit<32> index);
+        port_bytes.read(current_value,(bit<32>)standard_metadata.egress_port);
+
+        current_value = current_value + standard_metadata.packet_length;
+
+        //void write(in bit<32> index, in T value);
+        port_bytes.write((bit<32>)standard_metadata.egress_port,current_value);
+    }
+}
+# 28 "bandwidth_isolate.p4" 2
+# 1 "include/table0.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 
-    action mpls_push(bit<20> mpls_label_id,Port_t port){
-        hdr.mpls.setValid();
-        hdr.mpls.label=mpls_label_id;
-        hdr.mpls.exp=0;
-        hdr.mpls.s=1;
-        hdr.mpls.ttl=255;
-        hdr.ethernet.eth_type=ethertype_mpls;
-        set_out_port(port);
+
+
+# 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/table0.p4" 2
+# 1 "include/defines.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 22 "include/table0.p4" 2
+
+control table0_control(inout headers_t hdr,
+                       inout local_metadata_t local_metadata,
+                       inout standard_metadata_t standard_metadata) {
+
+    direct_counter(CounterType.packets_and_bytes) table0_counter;
+
+    action set_next_hop_id(next_hop_id_t next_hop_id) {
+        local_metadata.next_hop_id = next_hop_id;
     }
 
-    //FIXME when 3 device used ( middle only swap the label and specify output port)
-    // now in pipeconf if 2 instructions come will directly use mpls_pop and specify output port
-    //TODO should add another action to swap the label only and specify outputport
-    action mpls_pop(Port_t port){
-        hdr.mpls.setInvalid();
-        hdr.ethernet.eth_type=ethertype_ipv4;
-        set_out_port(port);
-   //     hdr.metadata.setInvalid();
+    action send_to_cpu() {
+        standard_metadata.egress_spec = CPU_PORT;
     }
 
-    action mpls_swap(bit<20> mpls_label_id,Port_t port){
-        hdr.mpls.label=mpls_label_id;
-        set_out_port(port);
-        hdr.mpls.ttl=hdr.mpls.ttl-1;
+    action set_egress_port(port_t port) { //old code  = set_out_port
+        standard_metadata.egress_spec = port;
     }
 
- //   action mark_the_packet(bit<8> tenant_outport){
-  //      tenantsSharedResourceMeter.execute_meter(tenant_outport,my_metadata.packet_colour);
-  //  }
+    action drop() {
+        mark_to_drop(standard_metadata);
+    }
 
-    //possibly need to split the table, each entry only support one action
-    //to push/pop mpls label, should use another table
-    //TODO
-   /** table mpls_processing_table{
-        key={
-            hdr.ipv4.ipv4_dest  :lpm;
-            hdr.mpls.label      :exact;
-            standard_metadata.ingress_port  : ternary;
+    //old code
+
+        action mpls_push(bit<20> mpls_label_id,port_t port){
+            hdr.mpls.setValid();
+            hdr.mpls.label=mpls_label_id;
+            hdr.mpls.exp=0;
+            hdr.mpls.s=1;
+            hdr.mpls.ttl=255;
+            hdr.ethernet.ether_type=ethertype_mpls;
+            set_egress_port(port);
         }
 
-        actions= {
+        //FIXME when 3 device used ( middle only swap the label and specify output port)
+        // now in pipeconf if 2 instructions come will directly use mpls_pop and specify output port
+        //TODO should add another action to swap the label only and specify outputport
+        action mpls_pop(port_t port){
+            hdr.mpls.setInvalid();
+            hdr.ethernet.ether_type=ethertype_ipv4;
+            set_egress_port(port);
+       //     hdr.metadata.setInvalid();
         }
 
+        action mpls_swap(bit<20> mpls_label_id,port_t port){
+            hdr.mpls.label=mpls_label_id;
+            set_egress_port(port);
+            hdr.mpls.ttl=hdr.mpls.ttl-1;
+        }
+     //end of old code
 
-    }//1 action with 2 parameters in P4
-    */
-    table l2_fwd{
-        key ={
+    table table0 { //old l2_fwd
+        key = {
             standard_metadata.ingress_port : ternary;
-            hdr.ethernet.dest_addr : ternary;
             hdr.ethernet.src_addr : ternary;
-            hdr.ethernet.eth_type : ternary;
-            hdr.mpls.label : ternary;
-            hdr.mpls.s : ternary;
-            hdr.ipv4.ipv4_dst : lpm;
+            hdr.ethernet.dst_addr : ternary;
+            hdr.ethernet.ether_type : ternary;
+            hdr.ipv4.src_addr : ternary;
+            hdr.ipv4.dst_addr : ternary;
+            hdr.ipv4.protocol : ternary;
+            hdr.mpls.label : ternary; //from old code
+            hdr.mpls.s : ternary; //from old code
+            local_metadata.l4_src_port : ternary;
+            local_metadata.l4_dst_port : ternary;
         }
-        //TODO update the action
-        actions={
-            set_out_port;
+        actions = {
+            set_egress_port;
             send_to_cpu;
+            set_next_hop_id;
             mpls_push;
             mpls_pop;
             mpls_swap;
-            _drop;
-            NoAction;
-       //     mark_the_packet;
+            drop;
         }
-        default_action=NoAction;
-        counters = flow_counter; //initialize the constructor
-     //TODO   meters = flow_meter;
+        const default_action = drop();
+        counters = table0_counter;
     }
 
-        apply {
-             if(standard_metadata.ingress_port==CPU_PORT){
-                            standard_metadata.egress_spec=(bit<9>)hdr.packet_out.egress_port; //specify that only using 9 bit from the packet out egress port field
-                            hdr.packet_out.setInvalid();
-
-                    }
-             else{
-                l2_fwd.apply();
-
-
-             }
-        }
-
+    apply {
+        table0.apply();
+     }
 }
-# 7 "bandwidth_isolate.p4" 2
-# 1 "include/port_counter.p4" 1
-
-
-
-//#include "../bandwidth_isolate.p4"
-
-//specifying a array of length MAX_PORT
-//indexing by the port number
-control port_counter_ingress_control(inout headers_t hdr,
-                                     inout standard_metadata_t standard_metadata){
-    counter(256,CounterType.packets_and_bytes) ingress_port_counter;
-
-//FIXME might need casting here
-
-    apply{
-        ingress_port_counter.count((bit<32>)standard_metadata.ingress_port);
-    }
-}
-
-control port_counter_egress_control(inout headers_t hdr,
-                                    inout standard_metadata_t standard_metadata){
-
-    counter(256,CounterType.packets_and_bytes) egress_port_counter;
-
-//FIXME might need casting here
-
-    apply{
-        egress_port_counter.count((bit<32>)standard_metadata.egress_port);
-    }
-}
-# 8 "bandwidth_isolate.p4" 2
-# 1 "include/port_meter.p4" 1
-
-
-
-//#include "../bandwidth_isolate.p4"
-
-//to have the statistic counting only
-//This is for the port rx
-//FIXME might need casting on port
-control port_meter_ingress_control(inout headers_t hdr,
-                                   inout standard_metadata_t standard_metadata){
-        meter (256, MeterType.bytes) ingress_port_meter;
-        MeterColour ingress_colour=MeterColour_GREEN;
-        apply{
-            ingress_port_meter.execute_meter<MeterColour>((bit<32>)standard_metadata.ingress_port,ingress_colour);
-        }//If ingress_colour get changed after consulting the meter, then make sense
-        //we can drop the packet here
-
-
-}
-
-//This is for the port tx
-control port_meter_egress_control(inout headers_t hdr,
-                                  inout standard_metadata_t standard_metadata){
-        meter(256,MeterType.bytes) egress_port_meter;
-        MeterColour egress_colour=MeterColour_GREEN;
-
-        apply{
-            egress_port_meter.execute_meter<MeterColour>((bit<32>)standard_metadata.egress_port,egress_colour);
-        }
-
-
-
-}
-# 9 "bandwidth_isolate.p4" 2
-# 1 "include/packet_in_out.p4" 1
-
-
-
+# 29 "bandwidth_isolate.p4" 2
+# 1 "include/checksums.p4" 1
 /*
-control packet_in_control(inout headers_t hdr,
-                      inout standard_metadata_t standard_metadata){
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 
-    apply{
-        if(standard_metadata.egress_spec==CPU_PORT){
-                hdr.packet_in.setValid();
-                hdr.packet_in.ingress_port=(bit<16>)standard_metadata.ingress_port;   //this packet-in is triggered from
-        }                                                         //this physical standard_metadata.ingress_port
+
+
+# 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 21 "include/checksums.p4" 2
+
+control verify_checksum_control(inout headers_t hdr,
+                             //   inout my_metadata_t my_metadata,
+                                inout local_metadata_t local_metadata) {
+    apply {
+        // Assume checksum is always correct.
     }
 }
-*/
 
-control packet_out_control(inout headers_t hdr,
-                            inout standard_metadata_t standard_metadata){
+control compute_checksum_control(inout headers_t hdr,
+          //                       inout my_metadata_t my_metadata,
+                                 inout local_metadata_t local_metadata) {
+    apply {
+        update_checksum(hdr.ipv4.isValid(),
+            {
+                hdr.ipv4.version,
+                hdr.ipv4.ihl,
+                hdr.ipv4.dscp,
+                hdr.ipv4.ecn,
+                hdr.ipv4.len,
+                hdr.ipv4.identification,
+                hdr.ipv4.flags,
+                hdr.ipv4.frag_offset,
+                hdr.ipv4.ttl,
+                hdr.ipv4.protocol,
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr
+            },
+            hdr.ipv4.hdr_checksum,
+            HashAlgorithm.csum16
+        );
 
-        apply{
+        // Need to recompute for the cloned packet.
+        //TODO: https://github.com/p4lang/p4app/issues/43#issuecomment-378061934
 
-        }
+        update_checksum(hdr.report_ipv4.isValid(),
+            {
+                hdr.report_ipv4.version,
+                hdr.report_ipv4.ihl,
+                hdr.report_ipv4.dscp,
+                hdr.report_ipv4.ecn,
+                hdr.report_ipv4.len,
+                hdr.report_ipv4.identification,
+                hdr.report_ipv4.flags,
+                hdr.report_ipv4.frag_offset,
+                hdr.report_ipv4.ttl,
+                hdr.report_ipv4.protocol,
+                hdr.report_ipv4.src_addr,
+                hdr.report_ipv4.dst_addr
+            },
+            hdr.report_ipv4.hdr_checksum,
+            HashAlgorithm.csum16
+        );
 
+    }
 }
-# 10 "bandwidth_isolate.p4" 2
+# 30 "bandwidth_isolate.p4" 2
+# 1 "include/int_parser.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+parser int_parser (
+    packet_in packet,
+    out headers_t hdr,
+    inout local_metadata_t local_metadata,
+  //  inout my_metadata_t my_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    state start {
+        transition select(standard_metadata.ingress_port) {
+            CPU_PORT: parse_packet_out;
+            default: parse_ethernet;
+        }
+    }
+
+    state parse_packet_out {
+        packet.extract(hdr.packet_out);
+        transition parse_ethernet;
+    }
+
+    state parse_ethernet {
+        packet.extract(hdr.ethernet);
+        transition select(hdr.ethernet.ether_type) {
+            ethertype_mpls : parse_mpls;
+            0x0800 : parse_ipv4;
+            default : accept;
+        }
+    }
+    state parse_mpls{
+  //      packet.extract(hdr.metadata);
+        packet.extract(hdr.mpls);
+        transition parse_ipv4;
+    }
+
+    state parse_ipv4 {
+        packet.extract(hdr.ipv4);
+        transition select(hdr.ipv4.protocol) {
+            8w6 : parse_tcp;
+            8w17 : parse_udp;
+            default: accept;
+        }
+    }
+
+    state parse_tcp {
+        packet.extract(hdr.tcp);
+        local_metadata.l4_src_port = hdr.tcp.src_port;
+        local_metadata.l4_dst_port = hdr.tcp.dst_port;
+        transition select(hdr.ipv4.dscp) {
+            DSCP_INT &&& DSCP_MASK: parse_intl4_shim;
+            default: accept;
+        }
+    }
+
+    state parse_udp {
+        packet.extract(hdr.udp);
+        local_metadata.l4_src_port = hdr.udp.src_port;
+        local_metadata.l4_dst_port = hdr.udp.dst_port;
+        transition select(hdr.ipv4.dscp) {
+            DSCP_INT &&& DSCP_MASK: parse_intl4_shim;
+            default: accept;
+        }
+    }
+
+    state parse_intl4_shim {
+        packet.extract(hdr.intl4_shim);
+        local_metadata.int_meta.intl4_shim_len = hdr.intl4_shim.len;
+        transition parse_int_header;
+    }
+
+    state parse_int_header {
+        packet.extract(hdr.int_header);
+        transition parse_int_data;
+    }
+
+    state parse_int_data {
+        // Parse INT metadata stack
+        packet.extract(hdr.int_data, ((bit<32>) (local_metadata.int_meta.intl4_shim_len - INT_HEADER_LEN_WORD)) << 5);
+        transition accept;
+    }
+}
+
+control int_deparser(
+    packet_out packet,
+    in headers_t hdr) {
+    apply {
+        packet.emit(hdr.packet_in);
+        packet.emit(hdr.report_ethernet);
+        packet.emit(hdr.report_ipv4);
+        packet.emit(hdr.report_udp);
+        packet.emit(hdr.report_fixed_header);
+        packet.emit(hdr.ethernet);
+        packet.emit(hdr.mpls);
+        packet.emit(hdr.ipv4);
+        packet.emit(hdr.tcp);
+        packet.emit(hdr.udp);
+        packet.emit(hdr.intl4_shim);
+        packet.emit(hdr.int_header);
+        packet.emit(hdr.int_switch_id);
+        packet.emit(hdr.int_level1_port_ids);
+        packet.emit(hdr.int_hop_latency);
+        packet.emit(hdr.int_q_occupancy);
+        packet.emit(hdr.int_ingress_tstamp);
+        packet.emit(hdr.int_egress_tstamp);
+        packet.emit(hdr.int_level2_port_ids);
+        packet.emit(hdr.int_egress_tx_util);
+        packet.emit(hdr.int_data);
+    }
+}
+# 31 "bandwidth_isolate.p4" 2
+# 1 "include/int_source.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+// Insert INT header to the packet
+control process_int_source (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    direct_counter(CounterType.packets_and_bytes) counter_int_source;
+
+    action int_source(bit<5> hop_metadata_len, bit<8> remaining_hop_cnt, bit<4> ins_mask0003, bit<4> ins_mask0407) {
+        // insert INT shim header
+        hdr.intl4_shim.setValid();
+        // int_type: Hop-by-hop type (1) , destination type (2)
+        hdr.intl4_shim.int_type = 1;
+        hdr.intl4_shim.len = INT_HEADER_LEN_WORD;
+        hdr.intl4_shim.dscp = hdr.ipv4.dscp;
+
+        // insert INT header
+        hdr.int_header.setValid();
+        hdr.int_header.ver = 0;
+        hdr.int_header.rep = 0;
+        hdr.int_header.c = 0;
+        hdr.int_header.e = 0;
+        hdr.int_header.m = 0;
+        hdr.int_header.rsvd1 = 0;
+        hdr.int_header.rsvd2 = 0;
+        hdr.int_header.hop_metadata_len = hop_metadata_len;
+        hdr.int_header.remaining_hop_cnt = remaining_hop_cnt;
+        hdr.int_header.instruction_mask_0003 = ins_mask0003;
+        hdr.int_header.instruction_mask_0407 = ins_mask0407;
+        hdr.int_header.instruction_mask_0811 = 0; // not supported
+        hdr.int_header.instruction_mask_1215 = 0; // not supported
+
+        // add the header len (3 words) to total len
+        hdr.ipv4.len = hdr.ipv4.len + INT_HEADER_SIZE + INT_SHIM_HEADER_SIZE;
+        hdr.udp.length_ = hdr.udp.length_ + INT_HEADER_SIZE + INT_SHIM_HEADER_SIZE;
+    }
+    action int_source_dscp(bit<5> hop_metadata_len, bit<8> remaining_hop_cnt, bit<4> ins_mask0003, bit<4> ins_mask0407) {
+        int_source(hop_metadata_len, remaining_hop_cnt, ins_mask0003, ins_mask0407);
+        hdr.ipv4.dscp = DSCP_INT;
+        counter_int_source.count();
+    }
+
+    table tb_int_source {
+        key = {
+            hdr.ipv4.src_addr: ternary;
+            hdr.ipv4.dst_addr: ternary;
+            local_metadata.l4_src_port: ternary;
+            local_metadata.l4_dst_port: ternary;
+        }
+        actions = {
+            int_source_dscp;
+            @defaultonly nop();
+        }
+        counters = counter_int_source;
+        const default_action = nop();
+    }
+
+    apply {
+        tb_int_source.apply();
+    }
+}
+
+control process_int_source_sink (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    direct_counter(CounterType.packets_and_bytes) counter_set_source;
+    direct_counter(CounterType.packets_and_bytes) counter_set_sink;
+
+    action int_set_source () {
+        local_metadata.int_meta.source = true;
+        counter_set_source.count();
+    }
+
+    action int_set_sink () {
+        local_metadata.int_meta.sink = true;
+        counter_set_sink.count();
+    }
+
+    table tb_set_source {
+        key = {
+            standard_metadata.ingress_port: exact;
+        }
+        actions = {
+            int_set_source;
+            @defaultonly nop();
+        }
+        counters = counter_set_source;
+        const default_action = nop();
+        size = 511;
+    }
+    table tb_set_sink {
+        key = {
+            standard_metadata.egress_spec: exact;
+        }
+        actions = {
+            int_set_sink;
+            @defaultonly nop();
+        }
+        counters = counter_set_sink;
+        const default_action = nop();
+        size = 511;
+    }
+
+    apply {
+        tb_set_source.apply();
+        tb_set_sink.apply();
+    }
+}
+# 32 "bandwidth_isolate.p4" 2
+# 1 "include/int_transit.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+control process_int_transit (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    action init_metadata(switch_id_t switch_id) {
+        local_metadata.int_meta.transit = true;
+        local_metadata.int_meta.switch_id = switch_id;
+    }
+
+    @hidden
+    action int_set_header_0() { //switch_id
+        hdr.int_switch_id.setValid();
+        hdr.int_switch_id.switch_id = local_metadata.int_meta.switch_id;
+    }
+    @hidden
+    action int_set_header_1() { //level1_port_id
+        hdr.int_level1_port_ids.setValid();
+        hdr.int_level1_port_ids.ingress_port_id = (bit<16>) standard_metadata.ingress_port;
+        hdr.int_level1_port_ids.egress_port_id = (bit<16>) standard_metadata.egress_port;
+    }
+    @hidden
+    action int_set_header_2() { //hop_latency
+        hdr.int_hop_latency.setValid();
+        hdr.int_hop_latency.hop_latency = (bit<32>) standard_metadata.egress_global_timestamp - (bit<32>) standard_metadata.ingress_global_timestamp;
+    }
+    @hidden
+    action int_set_header_3() { //q_occupancy
+        // TODO: Support egress queue ID
+        hdr.int_q_occupancy.setValid();
+        hdr.int_q_occupancy.q_id =
+        0;
+        // (bit<8>) standard_metadata.egress_qid;
+        hdr.int_q_occupancy.q_occupancy =
+        (bit<24>) standard_metadata.deq_qdepth;
+    }
+    @hidden
+    action int_set_header_4() { //ingress_tstamp
+        hdr.int_ingress_tstamp.setValid();
+        hdr.int_ingress_tstamp.ingress_tstamp =
+        (bit<32>) standard_metadata.ingress_global_timestamp;
+    }
+    @hidden
+    action int_set_header_5() { //egress_timestamp
+        hdr.int_egress_tstamp.setValid();
+        hdr.int_egress_tstamp.egress_tstamp =
+        (bit<32>) standard_metadata.egress_global_timestamp;
+    }
+    @hidden
+    action int_set_header_6() { //level2_port_id
+        hdr.int_level2_port_ids.setValid();
+        // level2_port_id indicates Logical port ID
+        hdr.int_level2_port_ids.ingress_port_id = (bit<32>) standard_metadata.ingress_port;
+        hdr.int_level2_port_ids.egress_port_id = (bit<32>) standard_metadata.egress_port;
+     }
+    @hidden
+    action int_set_header_7() { //egress_port_tx_utilization
+        // TODO: implement tx utilization support in BMv2
+        hdr.int_egress_tx_util.setValid();
+        hdr.int_egress_tx_util.egress_port_tx_util =
+        // (bit<32>) queueing_metadata.tx_utilization;
+        0;
+    }
+
+    // Actions to keep track of the new metadata added.
+    @hidden
+    action add_1() {
+        local_metadata.int_meta.new_words = local_metadata.int_meta.new_words + 1;
+        local_metadata.int_meta.new_bytes = local_metadata.int_meta.new_bytes + 4;
+    }
+
+    @hidden
+    action add_2() {
+        local_metadata.int_meta.new_words = local_metadata.int_meta.new_words + 2;
+        local_metadata.int_meta.new_bytes = local_metadata.int_meta.new_bytes + 8;
+    }
+
+    @hidden
+    action add_3() {
+        local_metadata.int_meta.new_words = local_metadata.int_meta.new_words + 3;
+        local_metadata.int_meta.new_bytes = local_metadata.int_meta.new_bytes + 12;
+    }
+
+    @hidden
+    action add_4() {
+        local_metadata.int_meta.new_words = local_metadata.int_meta.new_words + 4;
+       local_metadata.int_meta.new_bytes = local_metadata.int_meta.new_bytes + 16;
+    }
+
+    @hidden
+    action add_5() {
+        local_metadata.int_meta.new_words = local_metadata.int_meta.new_words + 5;
+        local_metadata.int_meta.new_bytes = local_metadata.int_meta.new_bytes + 20;
+    }
+
+     /* action function for bits 0-3 combinations, 0 is msb, 3 is lsb */
+     /* Each bit set indicates that corresponding INT header should be added */
+    @hidden
+     action int_set_header_0003_i0() {
+     }
+    @hidden
+     action int_set_header_0003_i1() {
+        int_set_header_3();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0003_i2() {
+        int_set_header_2();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0003_i3() {
+        int_set_header_3();
+        int_set_header_2();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i4() {
+        int_set_header_1();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0003_i5() {
+        int_set_header_3();
+        int_set_header_1();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i6() {
+        int_set_header_2();
+        int_set_header_1();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i7() {
+        int_set_header_3();
+        int_set_header_2();
+        int_set_header_1();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0003_i8() {
+        int_set_header_0();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0003_i9() {
+        int_set_header_3();
+        int_set_header_0();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i10() {
+        int_set_header_2();
+        int_set_header_0();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i11() {
+        int_set_header_3();
+        int_set_header_2();
+        int_set_header_0();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0003_i12() {
+        int_set_header_1();
+        int_set_header_0();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0003_i13() {
+        int_set_header_3();
+        int_set_header_1();
+        int_set_header_0();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0003_i14() {
+        int_set_header_2();
+        int_set_header_1();
+        int_set_header_0();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0003_i15() {
+        int_set_header_3();
+        int_set_header_2();
+        int_set_header_1();
+        int_set_header_0();
+        add_4();
+    }
+
+     /* action function for bits 4-7 combinations, 4 is msb, 7 is lsb */
+    @hidden
+    action int_set_header_0407_i0() {
+    }
+    @hidden
+    action int_set_header_0407_i1() {
+        int_set_header_7();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0407_i2() {
+        int_set_header_6();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0407_i3() {
+        int_set_header_7();
+        int_set_header_6();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0407_i4() {
+        int_set_header_5();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0407_i5() {
+        int_set_header_7();
+        int_set_header_5();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0407_i6() {
+        int_set_header_6();
+        int_set_header_5();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0407_i7() {
+        int_set_header_7();
+        int_set_header_6();
+        int_set_header_5();
+        add_4();
+    }
+    @hidden
+    action int_set_header_0407_i8() {
+        int_set_header_4();
+        add_1();
+    }
+    @hidden
+    action int_set_header_0407_i9() {
+        int_set_header_7();
+        int_set_header_4();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0407_i10() {
+        int_set_header_6();
+        int_set_header_4();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0407_i11() {
+        int_set_header_7();
+        int_set_header_6();
+        int_set_header_4();
+        add_4();
+    }
+    @hidden
+    action int_set_header_0407_i12() {
+        int_set_header_5();
+        int_set_header_4();
+        add_2();
+    }
+    @hidden
+    action int_set_header_0407_i13() {
+        int_set_header_7();
+        int_set_header_5();
+        int_set_header_4();
+        add_3();
+    }
+    @hidden
+    action int_set_header_0407_i14() {
+        int_set_header_6();
+        int_set_header_5();
+        int_set_header_4();
+        add_4();
+    }
+    @hidden
+    action int_set_header_0407_i15() {
+        int_set_header_7();
+        int_set_header_6();
+        int_set_header_5();
+        int_set_header_4();
+        add_5();
+    }
+
+    // Default action used to set switch ID.
+    table tb_int_insert {
+        // We don't really need a key here, however we add a dummy one as a
+        // workaround to ONOS inability to properly support default actions.
+        key = {
+            hdr.int_header.isValid(): exact @name("int_is_valid");
+        }
+        actions = {
+            init_metadata;
+            @defaultonly nop;
+        }
+        const default_action = nop();
+        size = 1;
+    }
+
+    /* Table to process instruction bits 0-3 */
+    @hidden
+    table tb_int_inst_0003 {
+        key = {
+            hdr.int_header.instruction_mask_0003 : exact;
+        }
+        actions = {
+            int_set_header_0003_i0;
+            int_set_header_0003_i1;
+            int_set_header_0003_i2;
+            int_set_header_0003_i3;
+            int_set_header_0003_i4;
+            int_set_header_0003_i5;
+            int_set_header_0003_i6;
+            int_set_header_0003_i7;
+            int_set_header_0003_i8;
+            int_set_header_0003_i9;
+            int_set_header_0003_i10;
+            int_set_header_0003_i11;
+            int_set_header_0003_i12;
+            int_set_header_0003_i13;
+            int_set_header_0003_i14;
+            int_set_header_0003_i15;
+        }
+        const entries = {
+            (0x0) : int_set_header_0003_i0();
+            (0x1) : int_set_header_0003_i1();
+            (0x2) : int_set_header_0003_i2();
+            (0x3) : int_set_header_0003_i3();
+            (0x4) : int_set_header_0003_i4();
+            (0x5) : int_set_header_0003_i5();
+            (0x6) : int_set_header_0003_i6();
+            (0x7) : int_set_header_0003_i7();
+            (0x8) : int_set_header_0003_i8();
+            (0x9) : int_set_header_0003_i9();
+            (0xA) : int_set_header_0003_i10();
+            (0xB) : int_set_header_0003_i11();
+            (0xC) : int_set_header_0003_i12();
+            (0xD) : int_set_header_0003_i13();
+            (0xE) : int_set_header_0003_i14();
+            (0xF) : int_set_header_0003_i15();
+        }
+    }
+
+    /* Table to process instruction bits 4-7 */
+    @hidden
+    table tb_int_inst_0407 {
+        key = {
+            hdr.int_header.instruction_mask_0407 : exact;
+        }
+        actions = {
+            int_set_header_0407_i0;
+            int_set_header_0407_i1;
+            int_set_header_0407_i2;
+            int_set_header_0407_i3;
+            int_set_header_0407_i4;
+            int_set_header_0407_i5;
+            int_set_header_0407_i6;
+            int_set_header_0407_i7;
+            int_set_header_0407_i8;
+            int_set_header_0407_i9;
+            int_set_header_0407_i10;
+            int_set_header_0407_i11;
+            int_set_header_0407_i12;
+            int_set_header_0407_i13;
+            int_set_header_0407_i14;
+            int_set_header_0407_i15;
+        }
+        const entries = {
+            (0x0) : int_set_header_0407_i0();
+            (0x1) : int_set_header_0407_i1();
+            (0x2) : int_set_header_0407_i2();
+            (0x3) : int_set_header_0407_i3();
+            (0x4) : int_set_header_0407_i4();
+            (0x5) : int_set_header_0407_i5();
+            (0x6) : int_set_header_0407_i6();
+            (0x7) : int_set_header_0407_i7();
+            (0x8) : int_set_header_0407_i8();
+            (0x9) : int_set_header_0407_i9();
+            (0xA) : int_set_header_0407_i10();
+            (0xB) : int_set_header_0407_i11();
+            (0xC) : int_set_header_0407_i12();
+            (0xD) : int_set_header_0407_i13();
+            (0xE) : int_set_header_0407_i14();
+            (0xF) : int_set_header_0407_i15();
+        }
+    }
+
+    apply {
+        tb_int_insert.apply();
+        if (local_metadata.int_meta.transit == false) {
+            return;
+        }
+        tb_int_inst_0003.apply();
+        tb_int_inst_0407.apply();
+
+        // Decrement remaining hop cnt
+        hdr.int_header.remaining_hop_cnt = hdr.int_header.remaining_hop_cnt - 1;
+
+        // Update headers lengths.
+        if (hdr.ipv4.isValid()) {
+            hdr.ipv4.len = hdr.ipv4.len + local_metadata.int_meta.new_bytes;
+        }
+        if (hdr.udp.isValid()) {
+            hdr.udp.length_ = hdr.udp.length_ + local_metadata.int_meta.new_bytes;
+        }
+        if (hdr.intl4_shim.isValid()) {
+            hdr.intl4_shim.len = hdr.intl4_shim.len + local_metadata.int_meta.new_words;
+        }
+    }
+}
+# 33 "bandwidth_isolate.p4" 2
+# 1 "include/int_sink.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+control process_int_sink (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+    inout standard_metadata_t standard_metadata) {
+    @hidden
+    action restore_header () {
+        hdr.ipv4.dscp = hdr.intl4_shim.dscp;
+        // restore length fields of IPv4 header and UDP header
+        bit<16> len_bytes = ((bit<16>)hdr.intl4_shim.len) << 2;
+        hdr.ipv4.len = hdr.ipv4.len - len_bytes;
+        hdr.udp.length_ = hdr.udp.length_ - len_bytes;
+    }
+
+    @hidden
+    action int_sink() {
+        // remove all the INT information from the packet
+        hdr.int_header.setInvalid();
+        hdr.int_data.setInvalid();
+        hdr.intl4_shim.setInvalid();
+        hdr.int_switch_id.setInvalid();
+        hdr.int_level1_port_ids.setInvalid();
+        hdr.int_hop_latency.setInvalid();
+        hdr.int_q_occupancy.setInvalid();
+        hdr.int_ingress_tstamp.setInvalid();
+        hdr.int_egress_tstamp.setInvalid();
+        hdr.int_level2_port_ids.setInvalid();
+        hdr.int_egress_tx_util.setInvalid();
+    }
+
+    apply {
+        restore_header();
+        int_sink();
+    }
+}
+# 34 "bandwidth_isolate.p4" 2
+# 1 "include/int_report.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+
+
+
+# 1 "include/telemetry_report_headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/* -*- P4_16 -*- */
+# 22 "include/int_report.p4" 2
+
+control process_int_report (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    action add_report_fixed_header() {
+        /* Device should include its own INT metadata as embedded,
+         * we'll not use local_report_header for this purpose.
+         */
+        hdr.report_fixed_header.setValid();
+        hdr.report_fixed_header.ver = 1;
+        hdr.report_fixed_header.len = 4;
+        /* only support for flow_watchlist */
+        hdr.report_fixed_header.nproto = NPROTO_ETHERNET;
+        hdr.report_fixed_header.rep_md_bits = 0;
+        hdr.report_fixed_header.d = 0;
+        hdr.report_fixed_header.q = 0;
+        hdr.report_fixed_header.f = 1;
+        hdr.report_fixed_header.rsvd = 0;
+        //TODO how to get information specific to the switch
+        hdr.report_fixed_header.hw_id = HW_ID;
+        hdr.report_fixed_header.sw_id = local_metadata.int_meta.switch_id;
+        // TODO how save a variable and increment
+        hdr.report_fixed_header.seq_no = 0;
+        //TODO how to get timestamp from ingress ns
+        hdr.report_fixed_header.ingress_tstamp = (bit<32>) standard_metadata.enq_timestamp;
+
+    }
+
+    action do_report_encapsulation(mac_t src_mac, mac_t mon_mac, ip_address_t src_ip,
+                        ip_address_t mon_ip, l4_port_t mon_port) {
+        //Report Ethernet Header
+        hdr.report_ethernet.setValid();
+        hdr.report_ethernet.dst_addr = mon_mac;
+        hdr.report_ethernet.src_addr = src_mac;
+        hdr.report_ethernet.ether_type = 0x0800;
+
+        //Report IPV4 Header
+        hdr.report_ipv4.setValid();
+        hdr.report_ipv4.version = 4w4;
+        hdr.report_ipv4.ihl = 4w5;
+        hdr.report_ipv4.dscp = 6w0;
+        hdr.report_ipv4.ecn = 2w0;
+        /* Total Len is report_ipv4_len + report_udp_len + report_fixed_hdr_len + ethernet_len + ipv4_totalLen */
+        hdr.report_ipv4.len = (bit<16>) IPV4_MIN_HEAD_LEN + (bit<16>) UDP_HEADER_LEN + (bit<16>) REPORT_FIXED_HEADER_LEN +
+                              (bit<16>) ETH_HEADER_LEN + (bit<16>) IPV4_MIN_HEAD_LEN + (bit<16>) UDP_HEADER_LEN + (((bit<16>) hdr.intl4_shim.len)<< 2);
+        /* Dont Fragment bit should be set */
+        hdr.report_ipv4.identification = 0;
+        hdr.report_ipv4.flags = 0;
+        hdr.report_ipv4.frag_offset = 0;
+        hdr.report_ipv4.ttl = REPORT_HDR_TTL;
+        hdr.report_ipv4.protocol = 8w17;
+        hdr.report_ipv4.src_addr = src_ip;
+        hdr.report_ipv4.dst_addr = mon_ip;
+
+        //Report UDP Header
+        hdr.report_udp.setValid();
+        hdr.report_udp.src_port = 0;
+        hdr.report_udp.dst_port = mon_port;
+        hdr.report_udp.length_ = (bit<16>) UDP_HEADER_LEN + (bit<16>) REPORT_FIXED_HEADER_LEN +
+                                 (bit<16>) ETH_HEADER_LEN + (bit<16>) IPV4_MIN_HEAD_LEN + (bit<16>) UDP_HEADER_LEN +
+                                 (((bit<16>) hdr.intl4_shim.len)<< 2);
+
+        local_metadata.compute_checksum = true;
+        add_report_fixed_header();
+
+        truncate((bit<32>)hdr.report_ipv4.len + (bit<32>) ETH_HEADER_LEN);
+    }
+
+    // Cloned packet is forwarded according to the mirroring_add command
+    table tb_generate_report {
+        // We don't really need a key here, however we add a dummy one as a
+        // workaround to ONOS inability to properly support default actions.
+        key = {
+            hdr.int_header.isValid(): exact @name("int_is_valid");
+        }
+        actions = {
+            do_report_encapsulation;
+            @defaultonly nop();
+        }
+        default_action = nop;
+    }
+
+    apply {
+        tb_generate_report.apply();
+    }
+}
+# 35 "bandwidth_isolate.p4" 2
+# 1 "include/custom_headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 36 "bandwidth_isolate.p4" 2
 # 1 "include/tenant_metering.p4" 1
 
 
@@ -1182,14 +2653,30 @@ control packet_out_control(inout headers_t hdr,
     //input port from host
     //output port to switch
 
-
+# 1 "include/headers.p4" 1
+/*
+ * Copyright 2017-present Open Networking Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+# 10 "include/tenant_metering.p4" 2
 //after mpls tagging
 //in onos app, insert table entry of matching the mpls label and output port
 
 control tenant_meter_ingress_control(inout headers_t hdr,
-                                     inout my_metadata_t my_metadata,
+                                     inout local_metadata_t local_metadata,
                                       inout standard_metadata_t standard_metadata){
-    meter(256,MeterType.bytes) tenant_port_meter;
+    meter(511,MeterType.bytes) tenant_port_meter;
     // FIXME should be using indirect meter
     // Each flow for a tenant using different label
     // A tenant holding multiple MPLS labels
@@ -1210,7 +2697,7 @@ control tenant_meter_ingress_control(inout headers_t hdr,
        // hdr.metadata.setValid();
         //now tenant_outport = tenant_id
       //  hdr.metadata.tenant_id=tenant_id;
-        tenant_port_meter.execute_meter((bit<32>)tenant_outport,my_metadata.packet_colour);
+        tenant_port_meter.execute_meter((bit<32>)tenant_outport,local_metadata.packet_colour);
     }
 
     table tenant_uplink_meter_table{
@@ -1229,7 +2716,7 @@ control tenant_meter_ingress_control(inout headers_t hdr,
     table tenant_uplink_meter_filtering_table{
 
         key= {
-            my_metadata.packet_colour : exact;
+            local_metadata.packet_colour : exact;
         }
         actions = {
         _drop();
@@ -1246,132 +2733,63 @@ control tenant_meter_ingress_control(inout headers_t hdr,
 
         }
 }
-# 11 "bandwidth_isolate.p4" 2
-/*
-struct my_metadata_t {
-//   metadata_t metadata;
-}
+# 37 "bandwidth_isolate.p4" 2
 
-//Use of struct
-//does a packet necessarily contain all headers specified in struct ?
-//Nope. It's the set of possible header appear
-struct headers_t {
-    Ethernet_t ethernet;
-    Ipv4_t ipv4;
-    Mpls_t mpls;
-    packet_in_hdr packet_in;
-    packet_out_hdr packet_out;
+control ingress (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+  //  inout my_metadata_t my_metadata,
+    inout standard_metadata_t standard_metadata) {
 
-}
-*/
+    apply {
+        port_counters_ingress.apply(hdr, standard_metadata);
+        packetio_ingress.apply(hdr, standard_metadata);
+        table0_control.apply(hdr, local_metadata, standard_metadata);
+        //FIXME
+        //if i mark to drop the packet before processing source and sink, will problem occur?
+        tenant_meter_ingress_control.apply(hdr,local_metadata,standard_metadata);
+        process_int_source_sink.apply(hdr, local_metadata, standard_metadata);
 
-/*******************************************************************************************
-************************************** Parser *********************************************
-*****************************************************************************************/
-//parser configuration
-parser parser_impl (packet_in packet,
-                    out headers_t hdr,
-                    inout my_metadata_t my_metadata,
-                    inout standard_metadata_t standard_metadata) {
-    state start {
-        transition select(standard_metadata.ingress_port){
-        CPU_PORT : parse_packet_out;
-        default : parse_ethernet;
+        if (local_metadata.int_meta.source == true) {
+            process_int_source.apply(hdr, local_metadata, standard_metadata);
+        }
+
+        if (local_metadata.int_meta.sink == true && hdr.int_header.isValid()) {
+            // clone packet for Telemetry Report
+            // FIXME: this works only on BMv2
+
+
+
         }
     }
-    //    transition select(packet.ethernet.eth_type){
-    //        ethertype_ipv4: parse_ipv4;
-    //        ethertype_mpls: parse_mpls;
-    //    }
-    state parse_packet_out{
-        packet.extract(hdr.packet_out);
-        transition parse_ethernet;
-    }
+}
 
-    state parse_ethernet{
-        packet.extract(hdr.ethernet);
-        transition select(hdr.ethernet.eth_type){
-            ethertype_mpls : parse_mpls;
-            ethertype_ipv4 : parse_ipv4;
-            default : accept;
+control egress (
+    inout headers_t hdr,
+    inout local_metadata_t local_metadata,
+  //  inout my_metadata_t my_metadata,
+    inout standard_metadata_t standard_metadata) {
+
+    apply {
+        if(hdr.int_header.isValid()) {
+            process_int_transit.apply(hdr, local_metadata, standard_metadata);
+# 85 "bandwidth_isolate.p4"
+            if (local_metadata.int_meta.sink == true) {
+
+                process_int_sink.apply(hdr, local_metadata, standard_metadata);
+             }
         }
-    }
-
-
-    state parse_mpls{
-  //      packet.extract(hdr.metadata);
-        packet.extract(hdr.mpls);
-        transition parse_ipv4;
-    }
-    //assuming top is always ipv4
-    state parse_ipv4{
-        packet.extract(hdr.ipv4);
-        transition accept;
-    }
- //   state parse_metadata{
-   //     packet.extract(hdr.metadata);
-     //   transition accept;
-  //  }
-}
-
-//ingress pipeline configuration
-
-control ingress_control(inout headers_t hdr,
-                        inout my_metadata_t my_metadata,
-                        inout standard_metadata_t standard_metadata) {
-
-        apply{
-        port_counter_ingress_control.apply(hdr,standard_metadata);
-        port_meter_ingress_control.apply(hdr,standard_metadata);
-   //     packet_out_control.apply(hdr,standard_metadata);
-        forwarding.apply(hdr,my_metadata,standard_metadata);
-        tenant_meter_ingress_control.apply(hdr,my_metadata,standard_metadata);
-
-        }
-}
-
-//FIXME customized metadata need to be emitted?
-//only emit valid headers
-control deparser(packet_out packet, in headers_t hdr) {
-    apply {
-        packet.emit(hdr.packet_in);
-        packet.emit(hdr.ethernet);
-   //     packet.emit(hdr.metadata);
-        packet.emit(hdr.mpls);
-        packet.emit(hdr.ipv4);
-    }
-}
-
-control verify_checksum_control(inout headers_t hdr,
-                                inout my_metadata_t my_metadata) {
-    apply {
-    }
-}
-
-control compute_checksum_control(inout headers_t hdr,
-                                 inout my_metadata_t my_metadata) {
-    apply {
+        port_counters_egress.apply(hdr, standard_metadata);
+        packetio_egress.apply(hdr, standard_metadata);
     }
 }
 
 
-
-control egress_control(inout headers_t hdr,
-                        inout my_metadata_t my_metadata,
-                        inout standard_metadata_t standard_metadata) {
-    apply {
-
-        port_counter_egress_control.apply(hdr,standard_metadata);
-        port_meter_egress_control.apply(hdr,standard_metadata);
-    //    packet_in_control.apply(hdr,standard_metadata);
-    }
-}
-
-V1Switch(parser_impl(),
-         verify_checksum_control(),
-         ingress_control(),
-         egress_control(),
-         compute_checksum_control(),
-         deparser()
-         )
-          main;
+V1Switch(
+    int_parser(),
+    verify_checksum_control(),
+    ingress(),
+    egress(),
+    compute_checksum_control(),
+    int_deparser()
+) main;

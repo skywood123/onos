@@ -65,8 +65,10 @@ public class PipelineInterpreter
     private static final String HDR = "hdr";
     private static final String ETHERNET = "ethernet";
     private static final String STANDARD_METADATA = "standard_metadata";
-    private static final String INGRESS_CONTROL = "ingress_control";
-    private static final String L2_FWD = "forwarding.l2_fwd";
+    //private static final String INGRESS_CONTROL = "ingress_control";
+    private static final String INGRESS_CONTROL = "ingress";
+    //private static final String L2_FWD = "forwarding.l2_fwd";
+    private static final String L2_FWD = "table0_control.table0";
     private static final String INGRESS_PORT = "ingress_port";
     private static final String EGRESS_PORT = "egress_port";
     private static final int PORT_FIELD_BITWIDTH = 16;
@@ -91,17 +93,17 @@ public class PipelineInterpreter
     private static final PiMatchFieldId INGRESS_PORT_ID=
             PiMatchFieldId.of(STANDARD_METADATA + DOT + INGRESS_PORT);
     private static final PiMatchFieldId ETH_DST_ID=
-            PiMatchFieldId.of(HDR + DOT + ETHERNET +DOT+ "dest_addr");
+            PiMatchFieldId.of(HDR + DOT + ETHERNET +DOT+ "dst_addr");
     private static final PiMatchFieldId ETH_SRC_ID=
             PiMatchFieldId.of(HDR + DOT + ETHERNET + DOT + "src_addr");
     private static final PiMatchFieldId ETH_TYPE_ID=
-            PiMatchFieldId.of(HDR +  DOT + ETHERNET + DOT + "eth_type");
+            PiMatchFieldId.of(HDR +  DOT + ETHERNET + DOT + "ether_type");
     private static final PiMatchFieldId MPLS_LABEL_ID=
             PiMatchFieldId.of(HDR +  DOT + MPLS + DOT + "label");
     private static final PiMatchFieldId MPLS_BOS_ID=
             PiMatchFieldId.of(HDR +  DOT + MPLS + DOT + "s");
     private static final PiMatchFieldId IPV4_DEST_ID=
-            PiMatchFieldId.of(HDR +  DOT + IPV4 + DOT + "ipv4_dst");
+            PiMatchFieldId.of(HDR +  DOT + IPV4 + DOT + "dst_addr");
 
     private static final PiTableId L2_FWD_ID =
             PiTableId.of(INGRESS_CONTROL + DOT + L2_FWD);
@@ -111,17 +113,17 @@ public class PipelineInterpreter
     private static final PiActionId ACT_ID_NOP=
             PiActionId.of("NoAction");
     private static final PiActionId ACT_ID_SEND_TO_CPU=
-            PiActionId.of(INGRESS_CONTROL + DOT +"forwarding.send_to_cpu"); //action must specify for which pipeline (ingress pipeline)
+            PiActionId.of(INGRESS_CONTROL + DOT +"table0_control.send_to_cpu"); //action must specify for which pipeline (ingress pipeline)
     private static final PiActionId ACT_ID_SET_EGRESS_PORT=      //because this action is defined inside this ingress pipeline
-            PiActionId.of(INGRESS_CONTROL + DOT + "forwarding.set_out_port"); //need to specify the full "url" that indicate it's under this pipeline
+            PiActionId.of(INGRESS_CONTROL + DOT + "table0_control.set_egress_port"); //need to specify the full "url" that indicate it's under this pipeline
 
     //FIXME needed?
     private static final PiActionId ACT_ID_MPLS_PUSH=
-            PiActionId.of(INGRESS_CONTROL + DOT + "forwarding.mpls_push");
+            PiActionId.of(INGRESS_CONTROL + DOT + "table0_control.mpls_push");
     private static final PiActionId ACT_ID_MPLS_POP=
-            PiActionId.of(INGRESS_CONTROL + DOT + "forwarding.mpls_pop");
+            PiActionId.of(INGRESS_CONTROL + DOT + "table0_control.mpls_pop");
     private static final PiActionId ACT_ID_MPLS_SWAP=
-            PiActionId.of(INGRESS_CONTROL + DOT + "forwarding.mpls_swap");
+            PiActionId.of(INGRESS_CONTROL + DOT + "table0_control.mpls_swap");
     private static final PiActionParamId ACT_PARAM_ID_PORT=
             PiActionParamId.of("port");
     private static final PiActionParamId ACT_PARAM_ID_MPLS_LABEL_ID=
