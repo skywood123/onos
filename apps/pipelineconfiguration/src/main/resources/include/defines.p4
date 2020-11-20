@@ -24,6 +24,7 @@
 #define IPV4_IHL_MIN 4w5
 #define MAX_PORTS 511
 
+#define MPLS_LABELS 1048576
 //from old code
 
 const bit<16> ethertype_ipv4=   0x0800;

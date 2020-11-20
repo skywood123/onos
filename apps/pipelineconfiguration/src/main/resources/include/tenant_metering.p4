@@ -20,9 +20,20 @@ control tenant_meter_ingress_control(inout headers_t hdr,
     // A indirect meter should be using : matching traffic from a tenant(from multiple mpls label or in port) going out an egress port
 
 
+    //FIXME
+    //a Counter Cell index cannot be cleared off
+    counter(MAX_PORTS,CounterType.packets_and_bytes) virtual_network_counters;
+
+
    // action tag_the_packet(MeterColour colour){
    //     my_metadata.packet_colour=colour;
    // }
+
+
+   action virtual_net_count(bit<8> tenant_outport){
+        virtual_network_counters.count((bit<32>) tenant_outport);
+
+   }
 
     action _drop(){
        mark_to_drop(standard_metadata);
@@ -61,12 +72,31 @@ control tenant_meter_ingress_control(inout headers_t hdr,
         }
 
     }
+
+    table virtual_network_counter_table{
+        key = {
+         //   standard_metadata.ingress_port : ternary;
+            standard_metadata.egress_spec : exact;
+            hdr.mpls.label : exact;
+        }
+        actions = {
+            virtual_net_count;
+            NoAction;
+        }
+        default_action= NoAction;
+
+
+
+    }
+
+
+
     apply{
 
-    if(tenant_uplink_meter_table.apply().hit)
+    if(tenant_uplink_meter_table.apply().hit){
         tenant_uplink_meter_filtering_table.apply();
-
-
+        virtual_network_counter.apply();
+    }
 
         }
 }

@@ -59,13 +59,14 @@ parser int_parser (
             default: accept;
         }
     }
-
+//if DSCP value indicating there is INT header embedded in the TCP payload, parse the INT headers
     state parse_tcp {
         packet.extract(hdr.tcp);
         local_metadata.l4_src_port = hdr.tcp.src_port;
         local_metadata.l4_dst_port = hdr.tcp.dst_port;
         transition select(hdr.ipv4.dscp) {
-            DSCP_INT &&& DSCP_MASK: parse_intl4_shim;
+            DSCP_INT &&& DSCP_MASK: parse_intl4_shim;        // &&& this is mask
+                                                            //given  8w0x0A &&& 8w0x0F ; this 8 bit value pattern matching will be xxxx1010 ; the mask is xxxx1111
             default: accept;
         }
     }
@@ -80,6 +81,8 @@ parser int_parser (
         }
     }
 
+//A shim header is inserted following TCP/UDP
+ // header. INT Headers are carried between this shim header and TCP/UDP payload.
     state parse_intl4_shim {
         packet.extract(hdr.intl4_shim);
         local_metadata.int_meta.intl4_shim_len = hdr.intl4_shim.len;
@@ -90,10 +93,16 @@ parser int_parser (
         packet.extract(hdr.int_header);
         transition parse_int_data;
     }
+/*
+void extract<T>(out T headerLvalue, in bit<32> variableFieldSize);
 
+The expression headerLvalue must be a l-value representing a header that contains exactly one varbit
+  field. The expression variableFieldSize must evaluate to a bit<32> value that indicates the number of
+  bits to be extracted into the unique varbit field of the header (i.e., this size is not the size of the complete
+  header, just the varbit field).*/
     state parse_int_data {
         // Parse INT metadata stack
-        packet.extract(hdr.int_data, ((bit<32>) (local_metadata.int_meta.intl4_shim_len - INT_HEADER_LEN_WORD)) << 5);
+        packet.extract(hdr.int_data, ((bit<32>) (local_metadata.int_meta.intl4_shim_len - INT_HEADER_LEN_WORD)) << 5); //this is calculating the actual bit width of the data; <<5 is converting bytes to bits
         transition accept;
     }
 }

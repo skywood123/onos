@@ -53,6 +53,14 @@ public final class BasicConstants {
             PiMatchFieldId.of("local_metadata.next_hop_id");
     public static final PiMatchFieldId HDR_HDR_ETHERNET_DST_ADDR =
             PiMatchFieldId.of("hdr.ethernet.dst_addr");
+
+
+    public static final PiMatchFieldId MPLS_LABEL_ID=
+            PiMatchFieldId.of("hdr.mpls.label");
+    public static final PiMatchFieldId MPLS_BOS_ID=
+            PiMatchFieldId.of("hdr.mpls.s");
+
+
     // Table IDs
     public static final PiTableId INGRESS_WCMP_CONTROL_WCMP_TABLE =
             PiTableId.of("ingress.wcmp_control.wcmp_table");
@@ -84,10 +92,23 @@ public final class BasicConstants {
             PiActionId.of("ingress.table0_control.drop");
     public static final PiActionId INGRESS_HOST_METER_CONTROL_READ_METER =
             PiActionId.of("ingress.host_meter_control.read_meter");
+
+    //mpls actions
+    public static final PiActionId ACT_ID_MPLS_PUSH=
+            PiActionId.of("ingress.table0_control.mpls_push");
+    public static final PiActionId ACT_ID_MPLS_POP=
+            PiActionId.of("ingress.table0_control.mpls_pop");
+    public static final PiActionId ACT_ID_MPLS_SWAP=
+            PiActionId.of("ingress.table0_control.mpls_swap");
+
     // Action Param IDs
     public static final PiActionParamId PORT = PiActionParamId.of("port");
     public static final PiActionParamId NEXT_HOP_ID =
             PiActionParamId.of("next_hop_id");
+
+    public static final PiActionParamId ACT_PARAM_ID_MPLS_LABEL_ID=
+            PiActionParamId.of("mpls_label_id");
+
     // Action Profile IDs
     public static final PiActionProfileId INGRESS_WCMP_CONTROL_WCMP_SELECTOR =
             PiActionProfileId.of("ingress.wcmp_control.wcmp_selector");

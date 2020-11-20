@@ -899,14 +899,14 @@ package V1Switch<H, M>(Parser<H, M> p,
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-# 27 "include/defines.p4"
+# 28 "include/defines.p4"
 //from old code
 
 const bit<16> ethertype_ipv4= 0x0800;
 const bit<16> ethertype_mpls= 0x8847;
 const bit<16> ethertype_lldp= 0x08CC;
 const bit<16> ethertype_arp = 0x0806;
-# 44 "include/defines.p4"
+# 45 "include/defines.p4"
 typedef bit<48> mac_t;
 typedef bit<32> ip_address_t;
 typedef bit<16> l4_port_t;
@@ -1137,6 +1137,23 @@ const bit<8> CPU_MIRROR_SESSION_ID = 250;
 const bit<32> REPORT_MIRROR_SESSION_ID = 500;
 const bit<6> HW_ID = 1;
 const bit<8> REPORT_HDR_TTL = 64;
+
+
+// These definitions are from:
+// https://github.com/jafingerhut/p4-guide/blob/master/v1model-special-ops/v1model-special-ops.p4
+
+// These definitions are derived from the numerical values of the enum
+// named "PktInstanceType" in the p4lang/behavioral-model source file
+// targets/simple_switch/simple_switch.h
+// https://github.com/p4lang/behavioral-model/blob/master/targets/simple_switch/simple_switch.h#L126-L134
+
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_NORMAL = 0;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE = 1;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_EGRESS_CLONE = 2;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_COALESCED = 3;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_RECIRC = 4;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_REPLICATION = 5;
+const bit<32> BMV2_V1MODEL_INSTANCE_TYPE_RESUBMIT = 6;
 # 25 "bandwidth_isolate.p4" 2
 # 1 "include/int_headers.p4" 1
 /*
@@ -1280,7 +1297,12 @@ header int_level2_port_ids_t {
 header int_egress_port_tx_util_t {
     bit<32> egress_port_tx_util;
 }
+header int_egress_port_bytes_t {
+    bit<32> egress_port_bytes;
+}
 
+//FIXME
+//might need to change this value
 header int_data_t {
     // Maximum int metadata stack size in bits:
     // (0x3F - 3) * 4 * 8 (excluding INT shim header and INT header)
@@ -1334,6 +1356,7 @@ struct headers_t {
     int_egress_tstamp_t int_egress_tstamp;
     int_level2_port_ids_t int_level2_port_ids;
     int_egress_port_tx_util_t int_egress_tx_util;
+    int_egress_port_bytes_t int_egress_bytes;
 }
 
 struct local_metadata_t {
@@ -1509,8 +1532,34 @@ control port_counters_egress(inout headers_t hdr,
 
         //void write(in bit<32> index, in T value);
         port_bytes.write((bit<32>)standard_metadata.egress_port,current_value);
+
+        if(hdr.int_egress_bytes.isValid()){
+            hdr.int_egress_bytes.egress_port_bytes = current_value;
+        }
+
     }
 }
+
+//if place at egress, the mpls label is after processed mpls.
+//push and swap : mpls header is valid ; pop will be invalid
+//if there is mpls label, means it is on the shared link
+/*
+control virtual_network_counters(inout headers_t hdr,
+                             inout standard_metadata_t standard_metadata) {
+
+      counter(MPLS_LABELS,CounterType.packets_and_bytes) virtual_network_counters; // old code
+
+    apply {
+        //counting mpls label ?
+        if(hdr.mpls.isValid()){
+        virtual_network_counters.count((bit<32>) hdr.mpls.label);
+
+        }
+
+
+    }
+}
+*/
 # 28 "bandwidth_isolate.p4" 2
 # 1 "include/table0.p4" 1
 /*
@@ -1806,13 +1855,14 @@ parser int_parser (
             default: accept;
         }
     }
-
+//if DSCP value indicating there is INT header embedded in the TCP payload, parse the INT headers
     state parse_tcp {
         packet.extract(hdr.tcp);
         local_metadata.l4_src_port = hdr.tcp.src_port;
         local_metadata.l4_dst_port = hdr.tcp.dst_port;
         transition select(hdr.ipv4.dscp) {
-            DSCP_INT &&& DSCP_MASK: parse_intl4_shim;
+            DSCP_INT &&& DSCP_MASK: parse_intl4_shim; // &&& this is mask
+                                                            //given  8w0x0A &&& 8w0x0F ; this 8 bit value pattern matching will be xxxx1010 ; the mask is xxxx1111
             default: accept;
         }
     }
@@ -1827,6 +1877,8 @@ parser int_parser (
         }
     }
 
+//A shim header is inserted following TCP/UDP
+ // header. INT Headers are carried between this shim header and TCP/UDP payload.
     state parse_intl4_shim {
         packet.extract(hdr.intl4_shim);
         local_metadata.int_meta.intl4_shim_len = hdr.intl4_shim.len;
@@ -1837,10 +1889,16 @@ parser int_parser (
         packet.extract(hdr.int_header);
         transition parse_int_data;
     }
+/*
+void extract<T>(out T headerLvalue, in bit<32> variableFieldSize);
 
+The expression headerLvalue must be a l-value representing a header that contains exactly one varbit
+  field. The expression variableFieldSize must evaluate to a bit<32> value that indicates the number of
+  bits to be extracted into the unique varbit field of the header (i.e., this size is not the size of the complete
+  header, just the varbit field).*/
     state parse_int_data {
         // Parse INT metadata stack
-        packet.extract(hdr.int_data, ((bit<32>) (local_metadata.int_meta.intl4_shim_len - INT_HEADER_LEN_WORD)) << 5);
+        packet.extract(hdr.int_data, ((bit<32>) (local_metadata.int_meta.intl4_shim_len - INT_HEADER_LEN_WORD)) << 5); //this is calculating the actual bit width of the data; <<5 is converting bytes to bits
         transition accept;
     }
 }
@@ -2034,7 +2092,12 @@ control process_int_transit (
         local_metadata.int_meta.transit = true;
         local_metadata.int_meta.switch_id = switch_id;
     }
-
+/*
+The @hidden annotation hides a controllable entity from the control plane. This is the only case in
+which a controllable entity is not required to have a unique, fully-qualified name.
+*/
+//int_set_header methods
+//activate the desired features to include in INT and its data
     @hidden
     action int_set_header_0() { //switch_id
         hdr.int_switch_id.setValid();
@@ -2080,6 +2143,7 @@ control process_int_transit (
         hdr.int_level2_port_ids.ingress_port_id = (bit<32>) standard_metadata.ingress_port;
         hdr.int_level2_port_ids.egress_port_id = (bit<32>) standard_metadata.egress_port;
      }
+     /*
     @hidden
     action int_set_header_7() { //egress_port_tx_utilization
         // TODO: implement tx utilization support in BMv2
@@ -2088,6 +2152,15 @@ control process_int_transit (
         // (bit<32>) queueing_metadata.tx_utilization;
         0;
     }
+    */
+    @hidden
+    action int_set_header_7() { //egress_port_register
+        hdr.int_egress_bytes.setValid();
+    //    hdr.int_egress_bytes.egress_port_bytes = local_metadata.egress_port_bytes;
+    }
+
+//add methods
+//called to update the total length of the chosen features to include in INT headers
 
     // Actions to keep track of the new metadata added.
     @hidden
@@ -2683,9 +2756,20 @@ control tenant_meter_ingress_control(inout headers_t hdr,
     // A indirect meter should be using : matching traffic from a tenant(from multiple mpls label or in port) going out an egress port
 
 
+    //FIXME
+    //a Counter Cell index cannot be cleared off
+    counter(511,CounterType.packets_and_bytes) virtual_network_counters;
+
+
    // action tag_the_packet(MeterColour colour){
    //     my_metadata.packet_colour=colour;
    // }
+
+
+   action virtual_net_count(bit<8> tenant_outport){
+        virtual_network_counters.count((bit<32>) tenant_outport);
+
+   }
 
     action _drop(){
        mark_to_drop(standard_metadata);
@@ -2724,12 +2808,31 @@ control tenant_meter_ingress_control(inout headers_t hdr,
         }
 
     }
+
+    table virtual_network_counter{
+        key = {
+         //   standard_metadata.ingress_port : ternary;
+            standard_metadata.egress_spec : exact;
+            hdr.mpls.label : exact;
+        }
+        actions = {
+            virtual_net_count;
+            NoAction;
+        }
+        default_action= NoAction;
+
+
+
+    }
+
+
+
     apply{
 
-    if(tenant_uplink_meter_table.apply().hit)
+    if(tenant_uplink_meter_table.apply().hit){
         tenant_uplink_meter_filtering_table.apply();
-
-
+        virtual_network_counter.apply();
+    }
 
         }
 }
@@ -2748,9 +2851,12 @@ control ingress (
         //FIXME
         //if i mark to drop the packet before processing source and sink, will problem occur?
         tenant_meter_ingress_control.apply(hdr,local_metadata,standard_metadata);
+
+        //allow control plane to set entry indicating if this ingress port or the egress port is INT source or INT sink
         process_int_source_sink.apply(hdr, local_metadata, standard_metadata);
 
         if (local_metadata.int_meta.source == true) {
+            //push the necessary INT Headers into it
             process_int_source.apply(hdr, local_metadata, standard_metadata);
         }
 
@@ -2758,7 +2864,7 @@ control ingress (
             // clone packet for Telemetry Report
             // FIXME: this works only on BMv2
 
-
+            clone3(CloneType.I2E, REPORT_MIRROR_SESSION_ID, standard_metadata);
 
         }
     }
@@ -2773,14 +2879,24 @@ control egress (
     apply {
         if(hdr.int_header.isValid()) {
             process_int_transit.apply(hdr, local_metadata, standard_metadata);
-# 85 "bandwidth_isolate.p4"
-            if (local_metadata.int_meta.sink == true) {
+
+
+            if ((standard_metadata.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE)) {
+                /* send int report */
+                process_int_report.apply(hdr, local_metadata, standard_metadata);
+            }
+
+            if (local_metadata.int_meta.sink == true && !(standard_metadata.instance_type == BMV2_V1MODEL_INSTANCE_TYPE_INGRESS_CLONE)) {
+
+
 
                 process_int_sink.apply(hdr, local_metadata, standard_metadata);
              }
         }
         port_counters_egress.apply(hdr, standard_metadata);
+        //virtual_network_counters.apply(hdr,standard_metadata);
         packetio_egress.apply(hdr, standard_metadata);
+
     }
 }
 

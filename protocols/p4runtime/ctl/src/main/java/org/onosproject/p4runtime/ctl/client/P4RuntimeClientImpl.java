@@ -142,6 +142,8 @@ public final class P4RuntimeClientImpl
 
     @Override
     public void setMastership(long p4DeviceId, boolean master, BigInteger newElectionId) {
+
+       // log.warn("p4deviceid= " + p4DeviceId);
         streamClients.putIfAbsent(p4DeviceId, new StreamClientImpl(
                 pipeconfService, masterElectionIdStore, this, p4DeviceId, controller));
         streamClients.get(p4DeviceId).setMastership(p4DeviceId, master, newElectionId);
@@ -149,6 +151,7 @@ public final class P4RuntimeClientImpl
 
     @Override
     public boolean isMaster(long p4DeviceId) {
+      //  log.warn("p4deviceid= " + p4DeviceId);
         return streamClients.containsKey(p4DeviceId) &&
                 streamClients.get(p4DeviceId).isMaster(p4DeviceId);
     }

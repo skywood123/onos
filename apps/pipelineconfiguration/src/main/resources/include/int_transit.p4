@@ -26,7 +26,12 @@ control process_int_transit (
         local_metadata.int_meta.transit = _TRUE;
         local_metadata.int_meta.switch_id = switch_id;
     }
-
+/*
+The @hidden annotation hides a controllable entity from the control plane. This is the only case in
+which a controllable entity is not required to have a unique, fully-qualified name.
+*/
+//int_set_header methods
+//activate the desired features to include in INT and its data
     @hidden
     action int_set_header_0() { //switch_id
         hdr.int_switch_id.setValid();
@@ -72,6 +77,7 @@ control process_int_transit (
         hdr.int_level2_port_ids.ingress_port_id = (bit<32>) standard_metadata.ingress_port;
         hdr.int_level2_port_ids.egress_port_id = (bit<32>) standard_metadata.egress_port;
      }
+     /*
     @hidden
     action int_set_header_7() { //egress_port_tx_utilization
         // TODO: implement tx utilization support in BMv2
@@ -80,6 +86,15 @@ control process_int_transit (
         // (bit<32>) queueing_metadata.tx_utilization;
         0;
     }
+    */
+    @hidden
+    action int_set_header_7() { //egress_port_register
+        hdr.int_egress_bytes.setValid();
+    //    hdr.int_egress_bytes.egress_port_bytes = local_metadata.egress_port_bytes;
+    }
+
+//add methods
+//called to update the total length of the chosen features to include in INT headers
 
     // Actions to keep track of the new metadata added.
     @hidden

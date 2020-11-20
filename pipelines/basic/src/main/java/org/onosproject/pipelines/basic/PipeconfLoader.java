@@ -55,8 +55,12 @@ public final class PipeconfLoader {
     public static final PiPipeconf BASIC_PIPECONF = buildBasicPipeconf();
 
     private static final PiPipeconfId INT_PIPECONF_ID = new PiPipeconfId("org.onosproject.pipelines.int");
-    private static final String INT_JSON_PATH = "/p4c-out/bmv2/int.json";
-    private static final String INT_P4INFO = "/p4c-out/bmv2/int_p4info.txt";
+
+    //private static final String INT_JSON_PATH = "/p4c-out/bmv2/int.json";
+    //private static final String INT_P4INFO = "/p4c-out/bmv2/int_p4info.txt";
+
+    private static final String INT_JSON_PATH = "/p4c-out/bmv2/bmv2.json";
+    private static final String INT_P4INFO = "/p4c-out/bmv2/p4info.txt";
 
     public static final PiPipeconf INT_PIPECONF = buildIntPipeconf();
 

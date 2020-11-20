@@ -109,7 +109,7 @@ public class IntProgrammableImpl extends AbstractHandlerBehaviour implements Int
                 IntConstants.SWITCH_ID,
                 ImmutableByteSequence.copyFrom(
                         Integer.parseInt(deviceId.toString().substring(
-                                deviceId.toString().length() - 2))));
+                                deviceId.toString().length() - 1))));
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchPi(PiCriterion.builder().matchExact(
                         IntConstants.HDR_INT_IS_VALID, (byte) 0x01)

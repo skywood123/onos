@@ -46,7 +46,32 @@ control port_counters_egress(inout headers_t hdr,
 
         //void write(in bit<32> index, in T value);
         port_bytes.write((bit<32>)standard_metadata.egress_port,current_value);
+
+        if(hdr.int_egress_bytes.isValid()){
+            hdr.int_egress_bytes.egress_port_bytes = current_value;
+        }
+
     }
 }
 
+//if place at egress, the mpls label is after processed mpls.
+//push and swap : mpls header is valid ; pop will be invalid
+//if there is mpls label, means it is on the shared link
+/*
+control virtual_network_counters(inout headers_t hdr,
+                             inout standard_metadata_t standard_metadata) {
+
+      counter(MPLS_LABELS,CounterType.packets_and_bytes) virtual_network_counters; // old code
+
+    apply {
+        //counting mpls label ?
+        if(hdr.mpls.isValid()){
+        virtual_network_counters.count((bit<32>) hdr.mpls.label);
+
+        }
+
+
+    }
+}
+*/
 #endif

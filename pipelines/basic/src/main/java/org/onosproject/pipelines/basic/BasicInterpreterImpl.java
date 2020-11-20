@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.onlab.packet.DeserializationException;
 import org.onlab.packet.Ethernet;
+import org.onlab.packet.MplsLabel;
 import org.onlab.util.ImmutableByteSequence;
 import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.DeviceId;
@@ -30,6 +31,8 @@ import org.onosproject.net.driver.AbstractHandlerBehaviour;
 import org.onosproject.net.flow.TrafficTreatment;
 import org.onosproject.net.flow.criteria.Criterion;
 import org.onosproject.net.flow.instructions.Instruction;
+import org.onosproject.net.flow.instructions.Instructions;
+import org.onosproject.net.flow.instructions.L2ModificationInstruction;
 import org.onosproject.net.packet.DefaultInboundPacket;
 import org.onosproject.net.packet.InboundPacket;
 import org.onosproject.net.packet.OutboundPacket;
@@ -56,22 +59,7 @@ import static org.onosproject.net.PortNumber.FLOOD;
 import static org.onosproject.net.flow.instructions.Instruction.Type.OUTPUT;
 import static org.onosproject.net.flow.instructions.Instructions.OutputInstruction;
 import static org.onosproject.net.pi.model.PiPacketOperationType.PACKET_OUT;
-import static org.onosproject.pipelines.basic.BasicConstants.EGRESS_PORT;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_HDR_ETHERNET_DST_ADDR;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_HDR_ETHERNET_ETHER_TYPE;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_HDR_ETHERNET_SRC_ADDR;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_HDR_IPV4_DST_ADDR;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_HDR_IPV4_SRC_ADDR;
-import static org.onosproject.pipelines.basic.BasicConstants.HDR_STANDARD_METADATA_INGRESS_PORT;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_PORT;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_TABLE0_CONTROL_DROP;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_TABLE0_CONTROL_SEND_TO_CPU;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_TABLE0_CONTROL_SET_EGRESS_PORT;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_TABLE0_CONTROL_TABLE0;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_WCMP_CONTROL_SET_EGRESS_PORT;
-import static org.onosproject.pipelines.basic.BasicConstants.INGRESS_WCMP_CONTROL_WCMP_TABLE;
-import static org.onosproject.pipelines.basic.BasicConstants.NO_ACTION;
-import static org.onosproject.pipelines.basic.BasicConstants.PORT;
+import static org.onosproject.pipelines.basic.BasicConstants.*;
 
 /**
  * Interpreter implementation for basic.p4.
@@ -85,6 +73,8 @@ public class BasicInterpreterImpl extends AbstractHandlerBehaviour
             new ImmutableMap.Builder<Integer, PiTableId>()
                     .put(0, BasicConstants.INGRESS_TABLE0_CONTROL_TABLE0)
                     .build();
+
+
     private static final Map<Criterion.Type, PiMatchFieldId> CRITERION_MAP =
             new ImmutableMap.Builder<Criterion.Type, PiMatchFieldId>()
                     .put(Criterion.Type.IN_PORT, HDR_STANDARD_METADATA_INGRESS_PORT)
@@ -93,20 +83,40 @@ public class BasicInterpreterImpl extends AbstractHandlerBehaviour
                     .put(Criterion.Type.ETH_TYPE, HDR_HDR_ETHERNET_ETHER_TYPE)
                     .put(Criterion.Type.IPV4_SRC, HDR_HDR_IPV4_SRC_ADDR)
                     .put(Criterion.Type.IPV4_DST, HDR_HDR_IPV4_DST_ADDR)
+                    .put(Criterion.Type.MPLS_LABEL,MPLS_LABEL_ID)
+                    .put(Criterion.Type.MPLS_BOS,MPLS_BOS_ID)
                     .build();
 
     @Override
     public PiAction mapTreatment(TrafficTreatment treatment, PiTableId piTableId)
             throws PiInterpreterException {
+
+        List<Instruction> temp;
+        temp = (treatment.allInstructions());
+
         if (treatment.allInstructions().isEmpty()) {
             // No actions means drop.
             return PiAction.builder().withId(INGRESS_TABLE0_CONTROL_DROP).build();
         } else if (treatment.allInstructions().size() > 1) {
             // We understand treatments with only 1 instruction.
-            throw new PiInterpreterException("Treatment has multiple instructions");
+
+            //ensure only contain L2MODIFICATION(for mpls) and OUTPUT
+
+            for (int i = 0; i < treatment.allInstructions().size(); i++) {
+                //    System.out.println(treatment.allInstructions().get(i).type().toString());
+
+                if (temp.get(i).type().toString().equalsIgnoreCase("L2MODIFICATION") == false && temp.get(i).type().toString().equalsIgnoreCase("OUTPUT") == false)
+                    throw new PiInterpreterException("Treatment has instructions different from [L2MODIFICATION,OUTPUT]: FAULTY instruction " +
+                                                             "= " + temp.get(i));
+            }
+
+            // throw new PiInterpreterException("Treatment has multiple instructions");
         }
 
         Instruction instruction = treatment.allInstructions().get(0);
+        Instructions.OutputInstruction outInstruction = (Instructions.OutputInstruction) instruction;
+        PortNumber port = outInstruction.port();
+    if(temp.size()==1){
         switch (instruction.type()) {
             case OUTPUT:
                 if (piTableId.equals(INGRESS_TABLE0_CONTROL_TABLE0)) {
@@ -123,7 +133,39 @@ public class BasicInterpreterImpl extends AbstractHandlerBehaviour
                 throw new PiInterpreterException(format(
                         "Instruction type '%s' not supported", instruction.type()));
         }
+    }else if(temp.size()==2){
+            // if(temp.get(0).type().getClass().equals(L2ModificationInstruction.ModMplsHeaderInstruction.class))
+            if(temp.get(0).type().toString().equalsIgnoreCase("L2MODIFICATION")) {
+                L2ModificationInstruction checker = (L2ModificationInstruction)temp.get(0);
+                if(checker.subtype().toString().equals("MPLS_POP"))
+                    return PiAction.builder()
+                            .withId(ACT_ID_MPLS_POP)
+                            .withParameter(new PiActionParam(
+                                    PORT, ImmutableByteSequence.copyFrom(port.toLong()))).build();
+
+                else if (checker.subtype().toString().equals("MPLS_LABEL")) {
+                    MplsLabel mpls_label = ((L2ModificationInstruction.ModMplsLabelInstruction) treatment.allInstructions().get(0)).label();
+                    return PiAction.builder()
+                            .withId(ACT_ID_MPLS_SWAP)
+                            .withParameter(new PiActionParam(
+                                    PORT, ImmutableByteSequence.copyFrom(port.toLong())))
+                            .withParameter(new PiActionParam(ACT_PARAM_ID_MPLS_LABEL_ID, ImmutableByteSequence.copyFrom(mpls_label.toInt())))
+                            .build();
+                } else
+                    throw new PiInterpreterException("Not understand instruction size 2 with subtype" + ((L2ModificationInstruction) temp.get(0)).subtype().toString());
+            }
+            else
+                throw new PiInterpreterException("Instruction is not for mpls, not understand " + temp.get(0).type().toString());
+        }else if(temp.size()==3){
+            MplsLabel mpls_label =((L2ModificationInstruction.ModMplsLabelInstruction)treatment.allInstructions().get(1)).label();
+            return PiAction.builder()
+                    .withId(ACT_ID_MPLS_PUSH)
+                    .withParameter(new PiActionParam(ACT_PARAM_ID_MPLS_LABEL_ID,ImmutableByteSequence.copyFrom(mpls_label.toInt())))
+                    .withParameter(new PiActionParam(PORT,ImmutableByteSequence.copyFrom(port.toLong()))).build();
+        }else
+            throw new PiInterpreterException("Error in number of instruction contained, max =3 but get size = " + temp.size());
     }
+
 
     private PiAction outputPiAction(OutputInstruction outInstruction, PiActionId piActionId)
             throws PiInterpreterException {

@@ -48,9 +48,12 @@ control ingress (
         //FIXME
         //if i mark to drop the packet before processing source and sink, will problem occur?
         tenant_meter_ingress_control.apply(hdr,local_metadata,standard_metadata);
+
+        //allow control plane to set entry indicating if this ingress port or the egress port is INT source or INT sink
         process_int_source_sink.apply(hdr, local_metadata, standard_metadata);
 
         if (local_metadata.int_meta.source == _TRUE) {
+            //push the necessary INT Headers into it
             process_int_source.apply(hdr, local_metadata, standard_metadata);
         }
 
@@ -88,7 +91,9 @@ control egress (
              }
         }
         port_counters_egress.apply(hdr, standard_metadata);
+        //virtual_network_counters.apply(hdr,standard_metadata);
         packetio_egress.apply(hdr, standard_metadata);
+
     }
 }
 

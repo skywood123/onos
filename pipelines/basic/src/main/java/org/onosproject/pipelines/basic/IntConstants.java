@@ -54,6 +54,9 @@ public final class IntConstants {
             PiMatchFieldId.of("hdr.ipv4.dst_addr");
     public static final PiMatchFieldId HDR_HDR_ETHERNET_DST_ADDR =
             PiMatchFieldId.of("hdr.ethernet.dst_addr");
+
+
+
     // Table IDs
     public static final PiTableId INGRESS_PROCESS_INT_SOURCE_TB_INT_SOURCE =
             PiTableId.of("ingress.process_int_source.tb_int_source");
@@ -81,25 +84,38 @@ public final class IntConstants {
             PiCounterId.of("ingress.process_int_source.counter_int_source");
     public static final PiCounterId INGRESS_PROCESS_INT_SOURCE_SINK_COUNTER_SET_SOURCE =
             PiCounterId.of("ingress.process_int_source_sink.counter_set_source");
+
+
     // Action IDs
     public static final PiActionId INGRESS_PROCESS_INT_SOURCE_INT_SOURCE_DSCP =
             PiActionId.of("ingress.process_int_source.int_source_dscp");
     public static final PiActionId EGRESS_PROCESS_INT_REPORT_DO_REPORT_ENCAPSULATION =
             PiActionId.of("egress.process_int_report.do_report_encapsulation");
+
+    //send to cpu
     public static final PiActionId INGRESS_TABLE0_CONTROL_SEND_TO_CPU =
             PiActionId.of("ingress.table0_control.send_to_cpu");
     public static final PiActionId INGRESS_PROCESS_INT_SOURCE_SINK_INT_SET_SOURCE =
             PiActionId.of("ingress.process_int_source_sink.int_set_source");
+    //no action
     public static final PiActionId NO_ACTION = PiActionId.of("NoAction");
     public static final PiActionId INGRESS_PROCESS_INT_SOURCE_SINK_INT_SET_SINK =
             PiActionId.of("ingress.process_int_source_sink.int_set_sink");
     public static final PiActionId INGRESS_TABLE0_CONTROL_SET_NEXT_HOP_ID =
             PiActionId.of("ingress.table0_control.set_next_hop_id");
+
+    //set egress port
     public static final PiActionId INGRESS_TABLE0_CONTROL_SET_EGRESS_PORT =
             PiActionId.of("ingress.table0_control.set_egress_port");
     public static final PiActionId EGRESS_PROCESS_INT_TRANSIT_INIT_METADATA =
             PiActionId.of("egress.process_int_transit.init_metadata");
+
     public static final PiActionId NOP = PiActionId.of("nop");
+
+
+
+
+
     // Action Param IDs
     public static final PiActionParamId INS_MASK0407 =
             PiActionParamId.of("ins_mask0407");
@@ -120,6 +136,9 @@ public final class IntConstants {
             PiActionParamId.of("hop_metadata_len");
     public static final PiActionParamId SRC_IP = PiActionParamId.of("src_ip");
     public static final PiActionParamId PORT = PiActionParamId.of("port");
+
+
+
     // Packet Metadata IDs
     public static final PiPacketMetadataId INGRESS_PORT =
             PiPacketMetadataId.of("ingress_port");

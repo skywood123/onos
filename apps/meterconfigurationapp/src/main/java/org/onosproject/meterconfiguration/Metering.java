@@ -489,6 +489,15 @@ public class Metering implements MeteringService{
 
         insertPiFlowRule(deviceId, TENANT_UPLINK_TABLE, matchlabelout, execute_meter, mplsLabel,uplinkport.toLong(),metercellindex);
 
+        //start code for counting
+        PiTableId VIRTUAL_NET_COUNTER_TABLE= PiTableId.of(TENANT_METER_CONTROL+ "virtual_network_counter_table");
+        PiActionId VIRTUAL_NET_COUNT = PiActionId.of(TENANT_METER_CONTROL + "virtual_net_count");
+        PiAction count_virtualnet = PiAction.builder().withId(VIRTUAL_NET_COUNT).withParameter(meterindex).build();
+        //for the parameter, reuse the meterindex variable to determine
+        insertPiFlowRule(deviceId,VIRTUAL_NET_COUNTER_TABLE,matchlabelout,count_virtualnet,mplsLabel,uplinkport.toLong(),metercellindex);
+        //end code for counting
+
+
         //   insertPiFlowRule(DeviceId.deviceId("device:bmv2:s1"),TENANT_UPLINK_TABLE,match2,execute_meter2);
 
         PiTableId TENANT_FILTERING_TABLE = PiTableId.of(TENANT_METER_CONTROL + "tenant_uplink_meter_filtering_table");
@@ -503,6 +512,8 @@ public class Metering implements MeteringService{
 
 //private void insertPiFlowRule(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction)
     }
+
+
 
     private void insertPiFlowRule(DeviceId deviceId, PiTableId tableId, PiCriterion piCriterion, PiAction piAction, MplsLabel mplsLabel, Long uplinkport, int metercellindex){
         FlowRule rule = DefaultFlowRule.builder().forDevice(deviceId)

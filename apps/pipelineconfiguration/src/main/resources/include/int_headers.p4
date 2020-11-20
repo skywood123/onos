@@ -70,7 +70,12 @@ header int_level2_port_ids_t {
 header int_egress_port_tx_util_t {
     bit<32> egress_port_tx_util;
 }
+header int_egress_port_bytes_t {
+    bit<32> egress_port_bytes;
+}
 
+//FIXME
+//might need to change this value
 header int_data_t {
     // Maximum int metadata stack size in bits:
     // (0x3F - 3) * 4 * 8 (excluding INT shim header and INT header)
@@ -124,6 +129,7 @@ struct headers_t {
     int_egress_tstamp_t int_egress_tstamp;
     int_level2_port_ids_t int_level2_port_ids;
     int_egress_port_tx_util_t int_egress_tx_util;
+    int_egress_port_bytes_t int_egress_bytes;
 }
 
 struct local_metadata_t {
