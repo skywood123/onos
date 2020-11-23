@@ -22,4 +22,6 @@ public interface MeteringService {
     public void deletingFlowRuleRelatedToRecord(NetworkId networkId, Record deletingRecord, Record networkRecord);
 
     public boolean deletingFlowRule(DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport);
+
+    public void bandwidthRate();
 }

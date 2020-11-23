@@ -10975,10 +10975,10 @@
           "direct_meters" : null,
           "action_ids" : [14, 1],
           "actions" : ["ingress.tenant_meter_ingress_control._drop", "NoAction"],
-          "base_default_next" : "ingress.tenant_meter_ingress_control.virtual_network_counter",
+          "base_default_next" : "ingress.tenant_meter_ingress_control.virtual_network_counter_table",
           "next_tables" : {
-            "ingress.tenant_meter_ingress_control._drop" : "ingress.tenant_meter_ingress_control.virtual_network_counter",
-            "NoAction" : "ingress.tenant_meter_ingress_control.virtual_network_counter"
+            "ingress.tenant_meter_ingress_control._drop" : "ingress.tenant_meter_ingress_control.virtual_network_counter_table",
+            "NoAction" : "ingress.tenant_meter_ingress_control.virtual_network_counter_table"
           },
           "default_entry" : {
             "action_id" : 1,
@@ -10988,13 +10988,13 @@
           }
         },
         {
-          "name" : "ingress.tenant_meter_ingress_control.virtual_network_counter",
+          "name" : "ingress.tenant_meter_ingress_control.virtual_network_counter_table",
           "id" : 5,
           "source_info" : {
             "filename" : "include/tenant_metering.p4",
             "line" : 76,
             "column" : 10,
-            "source_fragment" : "virtual_network_counter"
+            "source_fragment" : "virtual_network_counter_table"
           },
           "key" : [
             {

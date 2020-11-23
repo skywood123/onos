@@ -590,6 +590,10 @@ public class NetworkSlicing implements netinfo{
             Record record = bandwidthInventory.findRecord(currentNetworkId, sourcedest );
 
             //Handling end points record after the record connectpoints is affected
+            if(record == null){
+                log.warn("Metering for p4 virtual network enabled but no record found for the traffic!");
+                log.warn("Please configure at least a record for the virtual network.");
+            }else
             if(record.getType() == RecordType.END_POINTS && record.getConnectPoints()==null){
                 bandwidthInventory.removingRecord(currentNetworkId,sourcedest);
                 Set<ConnectPoint> connectPoints = new HashSet<>();

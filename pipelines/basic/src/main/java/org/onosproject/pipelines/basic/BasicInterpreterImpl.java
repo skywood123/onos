@@ -112,8 +112,11 @@ public class BasicInterpreterImpl extends AbstractHandlerBehaviour
 
             // throw new PiInterpreterException("Treatment has multiple instructions");
         }
+        //from old code
+        //Instruction instruction = treatment.allInstructions().get(0);
 
-        Instruction instruction = treatment.allInstructions().get(0);
+        //from pipelineconfiguration app
+        Instruction instruction=treatment.allInstructions().get(treatment.allInstructions().size()-1);
         Instructions.OutputInstruction outInstruction = (Instructions.OutputInstruction) instruction;
         PortNumber port = outInstruction.port();
     if(temp.size()==1){

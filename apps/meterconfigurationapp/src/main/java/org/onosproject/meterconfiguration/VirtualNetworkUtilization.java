@@ -1,8 +1,6 @@
 package org.onosproject.meterconfiguration;
 
 import com.google.common.base.Strings;
-import org.onosproject.drivers.p4runtime.AbstractP4RuntimeHandlerBehaviour;
-import org.onosproject.grpc.utils.AbstractGrpcHandshaker;
 import org.onosproject.incubator.net.virtual.NetworkId;
 import org.onosproject.incubator.net.virtual.VirtualNetworkService;
 import org.onosproject.net.DeviceId;
@@ -13,6 +11,7 @@ import org.onosproject.net.driver.DriverHandler;
 import org.onosproject.net.driver.DriverService;
 import org.onosproject.net.pi.model.PiCounterId;
 import org.onosproject.net.pi.model.PiPipeconf;
+import org.onosproject.net.pi.runtime.PiCounterCell;
 import org.onosproject.net.pi.service.PiPipeconfService;
 import org.onosproject.p4runtime.api.P4RuntimeClient;
 import org.onosproject.p4runtime.api.P4RuntimeController;
@@ -30,7 +29,9 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -54,6 +55,8 @@ public class VirtualNetworkUtilization {
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private DriverService driverService;
+
+
 
     protected final Logger log = LoggerFactory.getLogger(getClass());
 
@@ -79,13 +82,16 @@ public class VirtualNetworkUtilization {
                 utilizationStore.get(networkId).keySet()
                         .stream()
                         .forEach(deviceId ->{
+                                Set<PiCounterCell> counterCells = clientReading(deviceId);
 
+                                //TODO
+                                //get the metercellconfig relevant to the port number in utilization store and extract the counter value
                         } );
                     }
                     );
     }
 
-    private void clientReading(DeviceId deviceId){
+    public Set<PiCounterCell> clientReading(DeviceId deviceId){
         DriverHandler handler=driverService.createHandler(deviceId);
         P4RuntimeController controller = handler.get(P4RuntimeController.class);
 
@@ -115,9 +121,13 @@ public class VirtualNetworkUtilization {
 
         PiCounterId virtual_network_counter = PiCounterId.of("ingress.tenant_meter_ingress_control.virtual_network_counters");
         P4RuntimeReadClient.ReadResponse response = client.read(p4DeviceId, pipeconf).counterCells(virtual_network_counter).submitSync();
-
-        //TODO
-        //extract response, update the corresponding port from the meter cell index of that device for this virtual network
+        if(response.isSuccess()){
+            Set<PiCounterCell> counterCells = ((Set<PiCounterCell>) response.all(PiCounterCell.class));
+            return counterCells;
+        } else {
+            log.warn("Error in reading device " + deviceId + " counters");
+            return null;
+        }
     }
 
     private Long extractP4DeviceId(URI uri){

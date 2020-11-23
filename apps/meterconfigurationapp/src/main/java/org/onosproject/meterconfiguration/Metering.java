@@ -1,6 +1,7 @@
 package org.onosproject.meterconfiguration;
 
 
+import com.google.common.base.Strings;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onlab.packet.MplsLabel;
 import org.onosproject.component.ComponentService;
@@ -12,6 +13,8 @@ import org.onosproject.net.ConnectPoint;
 import org.onosproject.net.Device;
 import org.onosproject.net.DeviceId;
 import org.onosproject.net.PortNumber;
+import org.onosproject.net.config.NetworkConfigService;
+import org.onosproject.net.config.basics.BasicDeviceConfig;
 import org.onosproject.net.device.DeviceEvent;
 import org.onosproject.net.device.DeviceListener;
 import org.onosproject.net.device.DeviceService;
@@ -25,12 +28,14 @@ import org.onosproject.net.flow.FlowRuleService;
 import org.onosproject.net.flow.criteria.PiCriterion;
 import org.onosproject.net.pi.model.PiActionId;
 import org.onosproject.net.pi.model.PiActionParamId;
+import org.onosproject.net.pi.model.PiCounterId;
 import org.onosproject.net.pi.model.PiMatchFieldId;
 import org.onosproject.net.pi.model.PiMeterId;
 import org.onosproject.net.pi.model.PiPipeconf;
 import org.onosproject.net.pi.model.PiTableId;
 import org.onosproject.net.pi.runtime.PiAction;
 import org.onosproject.net.pi.runtime.PiActionParam;
+import org.onosproject.net.pi.runtime.PiCounterCell;
 import org.onosproject.net.pi.runtime.PiMeterBand;
 import org.onosproject.net.pi.runtime.PiMeterCellConfig;
 import org.onosproject.net.pi.runtime.PiMeterCellId;
@@ -38,6 +43,7 @@ import org.onosproject.net.pi.service.PiPipeconfService;
 import org.onosproject.net.pi.service.PiPipeconfWatchdogService;
 import org.onosproject.p4runtime.api.P4RuntimeClient;
 import org.onosproject.p4runtime.api.P4RuntimeController;
+import org.onosproject.p4runtime.api.P4RuntimeReadClient;
 import org.onosproject.p4runtime.api.P4RuntimeWriteClient;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
@@ -47,12 +53,20 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Component(immediate = true, service = MeteringService.class)
 public class Metering implements MeteringService{
@@ -114,6 +128,10 @@ public class Metering implements MeteringService{
         deviceService.getAvailableDevices().forEach(deviceId -> initializeDeviceInfo(deviceId.id()) );
         //    watchdogService.addListener(watchdogListener);
         log.info("merterconfig started");
+
+        log.info("Start querying for the virtual network counters...");
+
+        queryUtilization();
         //   getmeterconfig();
         //setmeterconfig();
         //insert_metering_rule();
@@ -130,8 +148,34 @@ public class Metering implements MeteringService{
     }
 
     @Override
+    public void bandwidthRate(){
+        System.out.println("Printing information::");
+       // log.info("Printing infomation::");
+        for(DeviceId deviceId : deviceMeterCellConfig.keySet()){
+            System.out.println("Device : " + deviceId);
+            System.out.println("-------------------------------------------------------");
+            System.out.println("MeterCellConfigs");
+            System.out.println("-------------------------------------------------------");
+
+        //    log.info("Device : {} " , deviceId);
+        //    log.info("-------------------------------------------------------");
+        //    log.info("MeterCellConfigs");
+        //    log.info("-------------------------------------------------------");
+            for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
+                System.out.println("Index : " + meterCellConfig.getIndex());
+                System.out.println("Current Rate: " + meterCellConfig.getCurrentRate());
+                System.out.println("------------------------------------------------------------------------");
+             //   log.info("Index : {}", meterCellConfig.getIndex());
+            //    log.info("Current Rate: " + meterCellConfig.getCurrentRate());
+             //   log.info("Record Type : {} , UplinkPort : {} , SourceDestConnectPoint : {}",meterCellConfig.recordtype, meterCellConfig.connectPoint.toString(), meterCellConfig.endPoints);
+             //   log.info("------------------------------------------------------------------------");
+            }
+        }
+    }
+
+    @Override
     public void printall(){
-        log.info("------------------------------------Debuggin Metering lists-----------------------------------");
+        log.info("------------------------------------Debugging Metering lists-----------------------------------");
         log.info("----------------------------------------------------------------------------------------------");
         log.info("----------------------------------------------------------------------------------------------");
         log.info("-------------------------------------DeviceMeterCellMetadata----------------------------------");
@@ -147,6 +191,7 @@ public class Metering implements MeteringService{
             log.info("-------------------------------------------------------");
             for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
                 log.info("Index : {}", meterCellConfig.getIndex());
+                log.info("Current Rate: " + meterCellConfig.getCurrentRate());
                 log.info("Record Type : {} , UplinkPort : {} , SourceDestConnectPoint : {}",meterCellConfig.recordtype, meterCellConfig.connectPoint.toString(), meterCellConfig.endPoints);
                 log.info("------------------------------------------------------------------------");
             }
@@ -166,6 +211,127 @@ public class Metering implements MeteringService{
         }
 
     }
+
+    /**
+     * Extract the relevant counter cell for this device and update in the metercellconfig
+     * Assumed it is updated every second
+     * @param counterCells
+     */
+    private void extraction(DeviceId deviceId, Collection<PiCounterCell> counterCells){
+        deviceMeterCellConfig.get(deviceId)
+                .forEach(meterCellConfig -> {
+            counterCells.stream().forEach(counterCell->{
+                if(counterCell.cellId().index() == meterCellConfig.getIndex()){
+                    meterCellConfig.previousUtilizationCounter = meterCellConfig.currentUtilizationCounter;
+                    meterCellConfig.currentUtilizationCounter = counterCell.data().bytes();
+
+                    //get the bits/s
+                    meterCellConfig.currentRate = (meterCellConfig.currentUtilizationCounter - meterCellConfig.previousUtilizationCounter)*8;
+                }
+            });
+        });
+    }
+
+    //code for getting utilization
+    public Collection<PiCounterCell> clientReading(DeviceId deviceId){
+        DriverHandler handler=driverService.createHandler(deviceId);
+        P4RuntimeController controller = handler.get(P4RuntimeController.class);
+
+        P4RuntimeClient client = controller.get(deviceId);
+        PiPipeconfService piPipeconfService = handler.get(PiPipeconfService.class);
+
+        PiPipeconf pipeconf = piPipeconfService.getPipeconf(deviceId).get();
+
+        long p4DeviceId = extractP4DeviceId(device_mgmt_addr(deviceId));
+      //  log.info("DeviceId : " + deviceId + "with p4deviceId: " + p4DeviceId);
+
+        PiCounterId virtual_network_counter = PiCounterId.of("ingress.tenant_meter_ingress_control.virtual_network_counters");
+        P4RuntimeReadClient.ReadResponse response = client.read(p4DeviceId, pipeconf).counterCells(virtual_network_counter).submitSync();
+        if(response.isSuccess()){
+       //     log.info("Successfull got the response");
+         //   response.all().forEach(piEntity -> {
+             //   log.info("Entitytype = " + piEntity.piEntityType().humanReadableName());
+          //  });
+            Collection<PiCounterCell> counterCells = response.all(PiCounterCell.class);
+       //     log.info("Casting is good.");
+            return counterCells;
+        } else {
+            log.warn("Error in reading device " + deviceId + " counters");
+            return null;
+        }
+    }
+
+    private URI device_mgmt_addr(DeviceId deviceId){
+        DriverHandler handler=driverService.createHandler(deviceId);
+        P4RuntimeController controller = handler.get(P4RuntimeController.class);
+
+        P4RuntimeClient client = controller.get(deviceId);
+        PiPipeconfService piPipeconfService = handler.get(PiPipeconfService.class);
+
+        PiPipeconf pipeconf = piPipeconfService.getPipeconf(deviceId).get();
+
+        final BasicDeviceConfig cfg = handler.get(NetworkConfigService.class)
+                .getConfig(deviceId, BasicDeviceConfig.class);
+        URI device_mgmt_addr;
+        if (cfg == null || Strings.isNullOrEmpty(cfg.managementAddress())) {
+            log.error("Missing or invalid config for {}, cannot derive " +
+                              "gRPC server endpoints", deviceId);
+            device_mgmt_addr = null;
+            return device_mgmt_addr;
+
+        }
+
+        try {
+            device_mgmt_addr= new URI(cfg.managementAddress());
+            return device_mgmt_addr;
+        } catch (URISyntaxException e) {
+            log.error("Management address of {} is not a valid URI: {}",
+                      deviceId, cfg.managementAddress());
+            device_mgmt_addr = null;
+
+            return device_mgmt_addr;
+        }
+    }
+
+    private Long extractP4DeviceId(URI uri){
+        if (uri == null) {
+            return null;
+        }
+        String[] segments = uri.getRawQuery().split("&");
+        try {
+            for (String s : segments) {
+                if (s.startsWith("device_id=")) {
+                    return Long.parseUnsignedLong(
+                            URLDecoder.decode(
+                                    s.substring("device_id=".length()), "utf-8"));
+                }
+            }
+        } catch (UnsupportedEncodingException e) {
+            log.error("Unable to decode P4Runtime-internal device_id from URI {}: {}",
+                      uri, e.toString());
+        } catch (NumberFormatException e) {
+            log.error("Invalid P4Runtime-internal device_id in URI {}: {}",
+                      uri, e.toString());
+        }
+        log.error("Missing P4Runtime-internal device_id in URI {}", uri);
+        return null;
+    }
+
+
+    private void queryUtilization(){
+        Runnable helloRunnable = new Runnable() {
+            public void run() {
+                log.info("Querying devices for virtual network utilization");
+                deviceMeterCellConfig.keySet().forEach(deviceId -> {
+                    extraction(deviceId,clientReading(deviceId));
+                });
+            }
+        };
+
+        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+        executor.scheduleAtFixedRate(helloRunnable, 0, 1, TimeUnit.SECONDS);
+    }
+    //end of code for getting utilization
 
     private void initializeDeviceInfo(DeviceId deviceId) {
         deviceMeterCellConfig.put(deviceId,new ArrayList<>());
@@ -452,7 +618,9 @@ public class Metering implements MeteringService{
         PiPipeconfService piPipeconfService = handler.get(PiPipeconfService.class);
         PiPipeconf pipeconf = piPipeconfService.getPipeconf(deviceId).get();
 
-        P4RuntimeWriteClient.WriteResponse response = client.write(DEFAULT_P4DEVICEID, pipeconf).entity(meter1, P4RuntimeWriteClient.UpdateType.MODIFY).submitSync();
+        long p4DeviceId = extractP4DeviceId(device_mgmt_addr(deviceId));
+
+        P4RuntimeWriteClient.WriteResponse response = client.write(p4DeviceId, pipeconf).entity(meter1, P4RuntimeWriteClient.UpdateType.MODIFY).submitSync();
         //    P4RuntimeWriteClient.WriteResponse response2 = client.write(pipeconf).entity(meter2,P4RuntimeWriteClient.UpdateType.MODIFY).submitSync();
         log.warn("write result is " + response.isSuccess());
         //  log.warn("write2 result is " + response.isSuccess());
@@ -614,6 +782,10 @@ public class Metering implements MeteringService{
         Integer index;
         //if this meter is for endpoints
         Set<ConnectPoint> endPoints;
+
+        long currentUtilizationCounter = -1;
+        long previousUtilizationCounter = -1;
+        long currentRate= -1;
         //TODO
         //Add in bandwidth limit for this meter
 
@@ -630,6 +802,10 @@ public class Metering implements MeteringService{
             if(recordType == RecordType.END_POINTS) {
                 this.endPoints = endPoints;
             }
+        }
+
+        public long getCurrentRate(){
+            return currentRate;
         }
 
         public boolean findMeterCellConfig(NetworkId networkId, RecordType recordType, ConnectPoint uplink, Set<ConnectPoint> endPoints){

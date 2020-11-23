@@ -95,7 +95,7 @@ control tenant_meter_ingress_control(inout headers_t hdr,
 
     if(tenant_uplink_meter_table.apply().hit){
         tenant_uplink_meter_filtering_table.apply();
-        virtual_network_counter.apply();
+        virtual_network_counter_table.apply();
     }
 
         }

@@ -146,9 +146,9 @@ tables {
 }
 tables {
   preamble {
-    id: 50134907
-    name: "ingress.tenant_meter_ingress_control.virtual_network_counter"
-    alias: "virtual_network_counter"
+    id: 41147556
+    name: "ingress.tenant_meter_ingress_control.virtual_network_counter_table"
+    alias: "virtual_network_counter_table"
   }
   match_fields {
     id: 1
