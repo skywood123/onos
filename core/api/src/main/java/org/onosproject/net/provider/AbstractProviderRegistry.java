@@ -121,6 +121,7 @@ public abstract class AbstractProviderRegistry<P extends Provider, S extends Pro
      * @return provider
      */
     protected synchronized P getProvider(ProviderId providerId) {
+
         P provider = providers.get(providerId);
         return provider != null ? provider : defaultProvider();
     }
@@ -132,6 +133,7 @@ public abstract class AbstractProviderRegistry<P extends Provider, S extends Pro
      * @return provider bound to the URI scheme
      */
     protected synchronized P getProvider(DeviceId deviceId) {
+
         P provider = providersByScheme.get(deviceId.uri().getScheme());
         return provider != null ? provider : defaultProvider();
     }

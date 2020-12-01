@@ -97,7 +97,7 @@ public class BasicInterpreterImpl extends AbstractHandlerBehaviour
         if (treatment.allInstructions().isEmpty()) {
             // No actions means drop.
             return PiAction.builder().withId(INGRESS_TABLE0_CONTROL_DROP).build();
-        } else if (treatment.allInstructions().size() > 1) {
+        } else if (treatment.allInstructions().size() >= 1) {
             // We understand treatments with only 1 instruction.
 
             //ensure only contain L2MODIFICATION(for mpls) and OUTPUT

@@ -4,6 +4,7 @@ package org.onosproject.meterconfiguration;
 import com.google.common.base.Strings;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.onlab.packet.MplsLabel;
+import org.onlab.util.SharedScheduledExecutorService;
 import org.onosproject.component.ComponentService;
 import org.onosproject.core.ApplicationId;
 import org.onosproject.core.CoreService;
@@ -106,6 +107,10 @@ public class Metering implements MeteringService{
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     private VirtualNetworkService virtualNetworkService;
 
+   // @Reference(cardinality = ReferenceCardinality.MANDATORY)
+   // private SharedScheduledExecutorService executorService;
+
+    private ScheduledExecutorService executor = Executors.newScheduledThreadPool(5);
 
 
  //   @Reference(cardinality = ReferenceCardinality.MANDATORY)
@@ -132,6 +137,7 @@ public class Metering implements MeteringService{
         log.info("Start querying for the virtual network counters...");
 
         queryUtilization();
+
         //   getmeterconfig();
         //setmeterconfig();
         //insert_metering_rule();
@@ -144,6 +150,8 @@ public class Metering implements MeteringService{
     public void deactivate(){
         log.info("Removing meterconfig flow rules...");
         flowRuleService.removeFlowRulesById(appId);
+
+        executor.shutdown();
         log.info("Stopped");
     }
 
@@ -163,7 +171,19 @@ public class Metering implements MeteringService{
         //    log.info("-------------------------------------------------------");
             for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
                 System.out.println("Index : " + meterCellConfig.getIndex());
-                System.out.println("Current Rate: " + meterCellConfig.getCurrentRate());
+                System.out.println("Virtual Network ID: " + meterCellConfig.networkId);
+                System.out.println("Port: " + meterCellConfig.connectPoint.toString());
+                long conversion = meterCellConfig.getCurrentRate();
+                if(conversion<999){
+                    System.out.println("Current Rate: " + meterCellConfig.getCurrentRate() + "bit/s");
+                }
+                else if(conversion<999999){
+                    System.out.println("Current Rate: " + meterCellConfig.getCurrentRate()/1000 + "kbit/s");
+                } else if(conversion>1000000){
+                    System.out.println("Current Rate: " + meterCellConfig.getCurrentRate()/1000000 + "mbit/s");
+                } else{
+                    System.out.println("Current Rate: Unknown" );
+                }
                 System.out.println("------------------------------------------------------------------------");
              //   log.info("Index : {}", meterCellConfig.getIndex());
             //    log.info("Current Rate: " + meterCellConfig.getCurrentRate());
@@ -191,7 +211,19 @@ public class Metering implements MeteringService{
             log.info("-------------------------------------------------------");
             for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
                 log.info("Index : {}", meterCellConfig.getIndex());
-                log.info("Current Rate: " + meterCellConfig.getCurrentRate());
+                log.info("Virtual Network ID: " + meterCellConfig.networkId);
+                log.info("Port: " + meterCellConfig.connectPoint.toString());
+                long conversion = meterCellConfig.getCurrentRate();
+                if(conversion<999){
+                    log.info("Current Rate: " + meterCellConfig.getCurrentRate() + "bit/s");
+                }
+                else if(conversion<999999){
+                    log.info("Current Rate: " + meterCellConfig.getCurrentRate()/1000 + "kbit/s");
+                } else if(conversion>1000000){
+                    log.info("Current Rate: " + meterCellConfig.getCurrentRate()/1000000 + "mbit/s");
+                } else{
+                    log.info("Current Rate: Unknown" );
+                }
                 log.info("Record Type : {} , UplinkPort : {} , SourceDestConnectPoint : {}",meterCellConfig.recordtype, meterCellConfig.connectPoint.toString(), meterCellConfig.endPoints);
                 log.info("------------------------------------------------------------------------");
             }
@@ -328,7 +360,7 @@ public class Metering implements MeteringService{
             }
         };
 
-        ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
+       // ScheduledExecutorService executor = Executors.newScheduledThreadPool(1);
         executor.scheduleAtFixedRate(helloRunnable, 0, 1, TimeUnit.SECONDS);
     }
     //end of code for getting utilization
@@ -482,20 +514,25 @@ public class Metering implements MeteringService{
     public boolean deletingFlowRule(DeviceId deviceId, MplsLabel mplsLabel, Long uplinkport){
         if(deviceFlowRule.containsKey(deviceId)) {
             Set<ExtraInfoFlowRule> flowRulesSet = deviceFlowRule.get(deviceId);
+            Set<ExtraInfoFlowRule> deleting = new HashSet<>();
             FlowRule toDelete;
             for(ExtraInfoFlowRule extraInfoFlowRule : flowRulesSet) {
                 toDelete = extraInfoFlowRule.compareFlowRule(deviceId,mplsLabel,uplinkport);
                 if (toDelete != null) {
                     flowRuleService.removeFlowRules(toDelete);
+                    log.warn("Deleting Metering Rule:");
+                    log.warn(toDelete.toString());
                     if(!meterIsReferenced(deviceId,extraInfoFlowRule, extraInfoFlowRule.getMeterIndex())) {
                         returningIndex(deviceId,extraInfoFlowRule.getMeterIndex());
                     }
+                    deleting.add(extraInfoFlowRule);
 
-                    deviceFlowRule.get(deviceId).remove(extraInfoFlowRule);
-
-                    return true;
+                    //return true;
                 }
             }
+            deleting.forEach(extraInfoFlowRule -> {
+                deviceFlowRule.get(deviceId).remove(extraInfoFlowRule);
+            });
         }
         return false;
     }

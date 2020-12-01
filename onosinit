@@ -1,0 +1,1 @@
+ONOS_APPS=proxyarp,hostprovider,lldpprovider,drivers.bmv2,gui,virtual ok clean

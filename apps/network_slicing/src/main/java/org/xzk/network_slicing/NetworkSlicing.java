@@ -25,6 +25,7 @@ import org.onosproject.meterconfiguration.Record;
 import org.onosproject.meterconfiguration.RecordType;
 import org.onosproject.net.flow.instructions.Instruction;
 import org.onosproject.net.flow.instructions.L2ModificationInstruction;
+import org.onosproject.net.link.LinkService;
 import org.osgi.service.component.annotations.Component;
 import org.apache.karaf.shell.api.action.lifecycle.Service;
 import org.osgi.service.component.annotations.Reference;
@@ -90,6 +91,9 @@ public class NetworkSlicing implements netinfo{
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected EdgePortService edgePortService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY)
+    protected LinkService linkService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY)
     protected BandwidthInventoryService bandwidthInventory;
@@ -516,8 +520,9 @@ public class NetworkSlicing implements netinfo{
             treatment.setOutput(outPort);
 
             // Build & send forwarding objective
-            sendFlowObjective(currentDeviceId, selector, treatment);
-            log.info("Flow objective sent to device!");
+            //temporary disable this line
+            //sendFlowObjective(currentDeviceId, selector, treatment);
+           // log.info("Flow objective sent to device!");
 
             // Forward out current packet
             packetOut(packetContext, outPort);
@@ -709,8 +714,9 @@ public class NetworkSlicing implements netinfo{
                 }
 
                 // Build & send forwarding objective
-                sendFlowObjective(currentDeviceId, selector, treatment);
-                log.info("Flow objective sent to device!" + currentDeviceId.toString());
+                //temporary disable this line
+                //sendFlowObjective(currentDeviceId, selector, treatment);
+                //log.info("Flow objective sent to device!" + currentDeviceId.toString());
             }
 
             // Forward out current packet
@@ -731,6 +737,8 @@ public class NetworkSlicing implements netinfo{
             // Construct Graph
             VirtualNetworkGraph virtualNetworkGraph = new VirtualNetworkGraph();
             for (VirtualLink virtualLink : virtualLinks) {
+                if(linkService.getLink(virtualLink.src(),virtualLink.dst())!=null)
+                if(linkService.getLink(virtualLink.src(),virtualLink.dst()).state()==Link.State.ACTIVE)
                 if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
                     virtualNetworkGraph.addEdge(virtualLink.src().deviceId(), virtualLink.dst().deviceId());
                 }
@@ -752,6 +760,9 @@ public class NetworkSlicing implements netinfo{
 
             for (int i = 0; i < deviceIds.size() - 1; i++) {
                 for (VirtualLink virtualLink : virtualLinks) {
+
+                    if(linkService.getLink(virtualLink.src(),virtualLink.dst())!=null)
+                    if(linkService.getLink(virtualLink.src(),virtualLink.dst()).state()==Link.State.ACTIVE)
                     if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
                         if (virtualLink.src().deviceId().equals(deviceIds.get(i)) &&
                                 virtualLink.dst().deviceId().equals(deviceIds.get(i + 1))) {
@@ -838,6 +849,7 @@ public class NetworkSlicing implements netinfo{
                     .forDevice(deviceId)
                     .build();
             flowRuleStorage.addFlowRule(networkId, flowPair, flowRule, mplsLabel, deviceId, sourcePort, destPort);
+            flowRuleService.applyFlowRules(flowRule);
         }
 
 
@@ -896,6 +908,12 @@ public class NetworkSlicing implements netinfo{
             // Construct Graph
             VirtualNetworkGraph virtualNetworkGraph = new VirtualNetworkGraph();
             for (VirtualLink virtualLink : virtualLinks) {
+                //TODO
+                //manually check if the virtualink is valid ;
+                //dont use the virtualink state; it is now not updated in onos2.1 for me
+
+                if(linkService.getLink(virtualLink.src(),virtualLink.dst())!=null)
+                if(linkService.getLink(virtualLink.src(),virtualLink.dst()).state()==Link.State.ACTIVE)
                 if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
                     virtualNetworkGraph.addEdge(virtualLink.src().deviceId(), virtualLink.dst().deviceId());
                 }
@@ -912,6 +930,9 @@ public class NetworkSlicing implements netinfo{
             List<Link> links = new LinkedList<>();
             for (int i = 0; i < computedPath.size() - 1; i++) {
                 for (VirtualLink virtualLink : virtualLinks) {
+
+                    if(linkService.getLink(virtualLink.src(),virtualLink.dst())!=null)
+                    if(linkService.getLink(virtualLink.src(),virtualLink.dst()).state()==Link.State.ACTIVE)
                     if (virtualLink.state().equals(VirtualLink.State.ACTIVE)) {
                         if (virtualLink.src().deviceId().equals(computedPath.get(i)) &&
                                 virtualLink.dst().deviceId().equals(computedPath.get(i + 1))) {
@@ -1091,7 +1112,9 @@ public class NetworkSlicing implements netinfo{
                     // Retract flow rules
                     List<FlowRuleInformation> flowRuleInformations = NetworkSlicing.flowRuleStorage.getFlowRules(a.getKey(), flowPair);
                     for (FlowRuleInformation flowRuleInfo : flowRuleInformations) {
+                        log.warn("Removing flowrule: {}",flowRuleInfo.getFlowRule().toString());
                         flowRuleService.removeFlowRules(flowRuleInfo.getFlowRule());
+
 
                         // Return MPLS Label if any
                         DeviceId currentDevice = flowRuleInfo.getFlowRuleDeviceId();
@@ -1122,6 +1145,7 @@ public class NetworkSlicing implements netinfo{
                          //   sourcedest.add(destination);
                          //   Record newRecord = bandwidthInventory.findRecord(networkId,sourcedest);
                          //   metering.deletingFlowRuleAndRedirectToNewMeterConfig(currentDevice, label, flowRuleInfo.getOutPort(),sourcedest,networkId, newRecord);
+                            log.warn("trigger metering to delete flow rule");
                             metering.deletingFlowRule(currentDevice,label,flowRuleInfo.getOutPort());
 
                         }

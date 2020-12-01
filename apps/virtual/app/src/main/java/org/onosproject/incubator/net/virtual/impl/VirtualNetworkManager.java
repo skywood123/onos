@@ -65,6 +65,7 @@ import org.onosproject.net.meter.MeterService;
 import org.onosproject.net.packet.PacketService;
 import org.onosproject.net.provider.AbstractListenerProviderRegistry;
 import org.onosproject.net.provider.AbstractProviderService;
+import org.onosproject.net.provider.ProviderId;
 import org.onosproject.net.topology.PathService;
 import org.onosproject.net.topology.TopologyService;
 import org.osgi.service.component.annotations.Activate;
@@ -217,6 +218,8 @@ public class VirtualNetworkManager
         checkNotNull(physicalDst, LINK_POINT_NULL);
 
         VirtualNetworkProvider provider = getProvider(DefaultVirtualLink.PID);
+        //FIXME
+//getprovider returning null
         Link.State state = Link.State.INACTIVE;
         if (provider != null) {
             //debug
@@ -231,9 +234,9 @@ public class VirtualNetworkManager
         } else {
             log.warn("provider is null");
             //FIXME temporarily fix
-            state = Link.State.ACTIVE;
-
+              state = Link.State.ACTIVE;
         }
+
         return store.addLink(networkId, src, dst, state, null);
     }
 
