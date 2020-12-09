@@ -54,6 +54,9 @@ import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import io.prometheus.client.Gauge;
+
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -86,6 +89,10 @@ public class Metering implements MeteringService{
     //Having knowledge of flowrule inserted
     Map<DeviceId,Set<ExtraInfoFlowRule>> deviceFlowRule = new HashMap<>();
 
+    //prometheus
+    private HTTPServer prometheus;
+
+  //  Gauge abc = Gauge.build().namespace("P4MeteringService").name("debuggingpurpose").help("123123").register();
     //  @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     //  private DeviceService deviceService;
 
@@ -136,6 +143,11 @@ public class Metering implements MeteringService{
 
         log.info("Start querying for the virtual network counters...");
 
+        try {
+            prometheus = new HTTPServer(10000);
+        }catch(IOException e){
+            e.printStackTrace();
+        }
         queryUtilization();
 
         //   getmeterconfig();
@@ -191,6 +203,29 @@ public class Metering implements MeteringService{
              //   log.info("------------------------------------------------------------------------");
             }
         }
+    }
+
+    private void exportPrometheus(){
+   //     int min = 0;
+    //    int max = 200;
+    //    abc.set(Math.random() * (max - min + 1) + min);
+
+        for(DeviceId deviceId : deviceMeterCellConfig.keySet()){
+         //   System.out.println("Device : " + deviceId);
+        //    System.out.println("-------------------------------------------------------");
+         //   System.out.println("MeterCellConfigs");
+        //    System.out.println("-------------------------------------------------------");
+
+            for(MeterCellConfig meterCellConfig : deviceMeterCellConfig.get(deviceId)) {
+          //      System.out.println("Index : " + meterCellConfig.getIndex());
+          //      System.out.println("Virtual Network ID: " + meterCellConfig.networkId);
+        //        System.out.println("Port: " + meterCellConfig.connectPoint.toString());
+                Long conversion = meterCellConfig.getCurrentRate();
+              //  Gauge.build().namespace("P4MeteringService").name(meterCellConfig.networkId +"," + meterCellConfig.connectPoint.toString()).help("Virtual Port Identifier").register().set(conversion.doubleValue());
+                meterCellConfig.gauge.set(conversion.doubleValue());
+            }
+        }
+
     }
 
     @Override
@@ -357,6 +392,11 @@ public class Metering implements MeteringService{
                 deviceMeterCellConfig.keySet().forEach(deviceId -> {
                     extraction(deviceId,clientReading(deviceId));
                 });
+                try{
+                    exportPrometheus();
+                }catch (Exception e){
+                    log.warn(e.getMessage());
+                }
             }
         };
 
@@ -819,7 +859,7 @@ public class Metering implements MeteringService{
         Integer index;
         //if this meter is for endpoints
         Set<ConnectPoint> endPoints;
-
+        Gauge gauge;
         long currentUtilizationCounter = -1;
         long previousUtilizationCounter = -1;
         long currentRate= -1;
@@ -836,6 +876,8 @@ public class Metering implements MeteringService{
             this.recordtype = recordType;
             this.connectPoint = connectPoint;
             this.index = index;
+            String refinedconnectpoint = connectPoint.toString().replaceAll("[^a-zA-Z0-9]", "");
+            this.gauge = Gauge.build().namespace("P4MeteringService").name("NetworkID"+this.networkId+ recordType.toString() + refinedconnectpoint).help("Virtual Port Identifier").register();
             if(recordType == RecordType.END_POINTS) {
                 this.endPoints = endPoints;
             }

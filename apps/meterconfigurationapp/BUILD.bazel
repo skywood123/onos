@@ -6,10 +6,20 @@ COMPILE_DEPS = CORE_DEPS + JACKSON + METRICS + CLI + [
     "//apps/virtual/api:onos-apps-virtual-api",
     "//apps/virtual/app:onos-apps-virtual-app",
     "@org_apache_karaf_shell_console//jar",
+    #  "@maven//:io_prometheus_simpleclient_httpserver",
+    #  "@maven//:io_prometheus_simpleclient",
+    #   "@maven//:io_prometheus_simpleclient_common",
+    "@maven//:io_prometheus_simpleclient_httpserver_0_9_0",
+    "@maven//:io_prometheus_simpleclient_0_9_0",
+    "@maven//:io_prometheus_simpleclient_common_0_9_0",
 ]
 
 BUNDLES = [
     "//apps/meterconfigurationapp:onos-apps-meterconfigurationapp",
+    # "@maven//:io_prometheus_simpleclient_httpserver_0_9_0",
+    "@maven//:io_prometheus_simpleclient_0_9_0",
+    "@maven//:io_prometheus_simpleclient_common_0_9_0",
+    #  "@maven//:com_sun_net_httpserver_http_20070405",
 ]
 
 osgi_jar(
